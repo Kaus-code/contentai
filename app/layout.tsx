@@ -1,5 +1,6 @@
 import './globals.css'
 import { ReactNode } from 'react'
+import ThemeToggle from './components/ThemeToggle'
 
 function Header() {
   return (
@@ -20,6 +21,7 @@ function Header() {
           </nav>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <ThemeToggle />
           <a className="secondary-btn" href="/agents">Create Agent</a>
           <a className="secondary-btn" href="/README.md">README</a>
         </div>

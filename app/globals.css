@@ -18,6 +18,24 @@
   --font-code: 'JetBrains Mono', monospace;
 }
 
+/* Light theme overrides when data-theme="light" on root */
+[data-theme="light"] {
+  --bg-dark: #f8fafc;
+  --bg-card: rgba(255, 255, 255, 0.8);
+  --bg-card-hover: rgba(255, 255, 255, 0.95);
+  --border-card: rgba(2,6,23,0.06);
+  --border-accent: rgba(56, 189, 248, 0.16);
+  --accent-cyan: #0369a1;
+  --accent-purple: #7c3aed;
+  --accent-emerald: #059669;
+  --accent-rose: #be123c;
+  --accent-amber: #d97706;
+  --text-main: #0f172a;
+  --text-muted: #334155;
+  --text-dim: #475569;
+  background-color: var(--bg-dark);
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -79,6 +97,20 @@ a:hover {
   align-items: center;
   gap: 8px;
   box-shadow: 0 0 20px rgba(37, 99, 235, 0.4);
+}
+
+.theme-toggle {
+  background: transparent;
+  border: 1px solid var(--border-card);
+  color: var(--text-main);
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.theme-toggle:hover {
+  background: rgba(255,255,255,0.02);
 }
 
 .glow-btn:hover {
