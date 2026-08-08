@@ -1,0 +1,38 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Agent {
+  id              String            @id @default(uuid())
+  name            String
+  domain          String
+  createdAt       DateTime          @default(now())
+  posts           Post[]
+  evaluatedTopics EvaluatedTopic[]
+}
+
+model Post {
+  id        String   @id @default(uuid())
+  agentId   String
+  agent     Agent    @relation(fields: [agentId], references: [id])
+  text      String
+  rationale String?
+  sources   String?
+  createdAt DateTime @default(now())
+}
+
+model EvaluatedTopic {
+  id        String  @id @default(uuid())
+  agentId   String
+  agent     Agent   @relation(fields: [agentId], references: [id])
+  title     String
+  url       String?
+  status    String
+  reason    String?
+  createdAt DateTime @default(now())
+}

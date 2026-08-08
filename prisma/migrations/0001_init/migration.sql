@@ -1,0 +1,33 @@
+-- Initial migration SQL for SQLite (matches schema.prisma)
+PRAGMA foreign_keys=OFF;
+BEGIN TRANSACTION;
+
+CREATE TABLE "Agent" (
+  "id" TEXT PRIMARY KEY NOT NULL,
+  "name" TEXT NOT NULL,
+  "domain" TEXT NOT NULL,
+  "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE "Post" (
+  "id" TEXT PRIMARY KEY NOT NULL,
+  "agentId" TEXT NOT NULL,
+  "text" TEXT NOT NULL,
+  "rationale" TEXT,
+  "sources" TEXT,
+  "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY ("agentId") REFERENCES "Agent" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+CREATE TABLE "EvaluatedTopic" (
+  "id" TEXT PRIMARY KEY NOT NULL,
+  "agentId" TEXT NOT NULL,
+  "title" TEXT NOT NULL,
+  "url" TEXT,
+  "status" TEXT NOT NULL,
+  "reason" TEXT,
+  "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY ("agentId") REFERENCES "Agent" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+COMMIT;
