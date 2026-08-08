@@ -1,4 +1,4 @@
-import { createAgent, createPost, createPostMetric, listPostMetricsByAgent } from '../../lib/db.ts'
+import { createAgent, createPost, createPostMetric, listPostMetricsByAgent } from '../../lib/db'
 
 async function main() {
   const agent = await createAgent({ name: 'TestAnalytics', domain: 'Testing' })

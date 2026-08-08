@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
-import * as db from '../../../../lib/db'
-import { scoreDomain } from '../../../../lib/sourceCred'
+import * as db from '@/lib/db'
+import { scoreDomain } from '@/lib/sourceCred'
 
 export async function GET(request: Request) {
   const url = new URL(request.url)

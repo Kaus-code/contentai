@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
-import * as db from '../../../../lib/db'
-import * as emb from '../../../../lib/embeddings'
+import * as db from '@/lib/db'
+import * as emb from '@/lib/embeddings'
 
 export async function POST(request: Request) {
   const body = await request.json()
@@ -8,7 +8,7 @@ export async function POST(request: Request) {
   if (!vector) return NextResponse.json({ error: 'vector required' }, { status: 400 })
 
   const saved = await db.createEmbedding({ postId: postId || null, agentId: agentId || null, vector: JSON.stringify(vector) })
-  return NextResponse.json({ embedding: saved })
+  return NextResponse.json({ embedding: saved }, { status: 201 })
 }
 
 export async function GET(request: Request) {

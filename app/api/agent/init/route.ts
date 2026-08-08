@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { createAgent } from '../../../../lib/db'
-import { runAutonomousCycle } from '../../../../lib/agent-engine'
-import { registerAgentScheduler } from '../../../../lib/scheduler'
+import { createAgent } from '@/lib/db'
+import { runAutonomousCycle } from '@/lib/agent-engine'
+import { registerAgentScheduler } from '@/lib/scheduler'
 
 type Persona = {
   name: string

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { runAutonomousCycle } from '../../../../lib/agent-engine'
+import { runAutonomousCycle } from '@/lib/agent-engine'
 
 export async function POST(req: NextRequest) {
   try {

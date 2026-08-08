@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getAllAgents } from '../../../../lib/db'
+import { getAllAgents } from '@/lib/db'
 
 export async function GET() {
   try {
@@ -7,6 +7,6 @@ export async function GET() {
     return NextResponse.json({ agents }, { status: 200 })
   } catch (err: any) {
     console.error('GET /api/agent/list error', err)
-    return NextResponse.json({ agents: [] }, { status: 200 })
+    return NextResponse.json({ error: err?.message ?? 'Internal server error' }, { status: 500 })
   }
 }

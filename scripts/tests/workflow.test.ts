@@ -1,4 +1,4 @@
-import { createAgent, createWorkflow, createWorkflowStep, listWorkflowsByAgent } from '../../lib/db.ts'
+import { createAgent, createWorkflow, createWorkflowStep, listWorkflowsByAgent } from '../../lib/db'
 
 async function main() {
   const agent = await createAgent({ name: 'TestWorkflow', domain: 'Testing' })

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { listPostsByAgent, listPostMetricsByAgent } from '../../../../lib/db'
+import { listPostsByAgent, listPostMetricsByAgent } from '@/lib/db'
 
 export const dynamic = 'force-dynamic'
 

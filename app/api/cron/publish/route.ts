@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { getAllAgents } from '../../../../lib/db'
-import { runAutonomousCycle } from '../../../../lib/agent-engine'
+
+import { getAllAgents } from '@/lib/db'
+import { runAutonomousCycle } from '@/lib/agent-engine'
 
 const CRON_SECRET = process.env.CRON_SECRET
 
@@ -9,8 +10,9 @@ export async function GET(req: NextRequest) {
   const authHeader = req.headers.get('authorization')
   const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : undefined
 
-  // Enforce CRON_SECRET in production if configured
-  if (process.env.NODE_ENV === 'production' && CRON_SECRET && token !== CRON_SECRET) {
+  // Fail closed: require CRON_SECRET to be set and match the provided token
+  if (!CRON_SECRET || token !== CRON_SECRET) {
+    console.warn('Unauthorized cron request or CRON_SECRET not configured')
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

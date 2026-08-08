@@ -1,15 +1,15 @@
 import { OpenAI } from 'openai'
-import { fetchLiveTechTopics } from './discovery.ts'
-import type { Topic } from './discovery.ts'
+import { fetchLiveTechTopics } from '@/lib/discovery'
+import type { Topic } from '@/lib/discovery'
 import {
   createEvaluatedTopic,
   createPost,
   getAgentById,
   listEvaluatedTopicsByAgent,
   listPostsByAgent,
-} from './db.ts'
-import * as db from './db.ts'
-import * as emb from './embeddings'
+} from '@/lib/db'
+import * as db from '@/lib/db'
+import * as emb from '@/lib/embeddings'
 
 type AgentPersona = {
   id: string

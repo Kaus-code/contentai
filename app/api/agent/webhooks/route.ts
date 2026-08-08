@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import * as db from '../../../../lib/db'
+import * as db from '@/lib/db'
 
 export async function GET(request: Request) {
   const url = new URL(request.url)

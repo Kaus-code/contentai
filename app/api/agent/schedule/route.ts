@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { getAgentById, updateAgentSchedule } from '../../../../lib/db'
+import { getAgentById, updateAgentSchedule } from '@/lib/db'
 
 export async function GET(req: NextRequest) {
   try {

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { createWorkflowStep, listWorkflowSteps, updateWorkflowStep, deleteWorkflowStep } from '../../../../../../lib/db'
+import { createWorkflowStep, listWorkflowSteps, updateWorkflowStep, deleteWorkflowStep } from '@/lib/db'
 
 export async function GET(req: NextRequest) {
   try {
@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ steps }, { status: 200 })
   } catch (err: any) {
     console.error('GET /api/agent/workflow/step error', err)
-    return NextResponse.json({ steps: [] }, { status: 200 })
+    return NextResponse.json({ error: err?.message ?? 'Internal server error' }, { status: 500 })
   }
 }
 

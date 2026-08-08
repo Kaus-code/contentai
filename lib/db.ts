@@ -1,4 +1,4 @@
-import prisma from './prisma.ts'
+import prisma from '@/lib/prisma'
 
 function hasModel(name: string) {
   // @ts-ignore

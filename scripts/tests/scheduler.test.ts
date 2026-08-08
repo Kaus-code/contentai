@@ -1,5 +1,5 @@
-import { createAgent, listPostsByAgent } from '../../lib/db.ts'
-import { runAutonomousCycle } from '../../lib/agent-engine.ts'
+import { createAgent, listPostsByAgent } from '../../lib/db'
+import { runAutonomousCycle } from '../../lib/agent-engine'
 
 async function main() {
   const agent = await createAgent({ name: 'TestScheduler', domain: 'Testing' })

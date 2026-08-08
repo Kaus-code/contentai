@@ -1,3 +1,13 @@
+node_modules/
+.env
+.env.local
+.next/
+dist/
+tsconfig.tsbuildinfo
+.DS_Store
+
+# local databases
+dev.db
 node_modules
 .next
 dev.db

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { createWorkflow, listWorkflowsByAgent, createWorkflowStep } from '../../../../lib/db'
+import { createWorkflow, listWorkflowsByAgent, createWorkflowStep } from '@/lib/db'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ workflows }, { status: 200 })
   } catch (err: any) {
     console.error('GET /api/agent/workflow error:', err)
-    return NextResponse.json({ workflows: [] }, { status: 200 })
+    return NextResponse.json({ error: err?.message ?? 'Internal server error' }, { status: 500 })
   }
 }
 

@@ -1,5 +1,5 @@
-import { runAutonomousCycle } from './agent-engine.ts'
-import { listPostsByAgent } from './db.ts'
+import { runAutonomousCycle } from '@/lib/agent-engine'
+import { listPostsByAgent } from '@/lib/db'
 
 const activeTimers = new Map<string, NodeJS.Timeout>()
 
