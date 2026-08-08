@@ -30,3 +30,7 @@ export async function getAgentById(id: string) {
 export async function listPostsByAgent(agentId: string) {
   return prisma.post.findMany({ where: { agentId }, orderBy: { createdAt: 'desc' } })
 }
+
+export async function listEvaluatedTopicsByAgent(agentId: string) {
+  return prisma.evaluatedTopic.findMany({ where: { agentId }, orderBy: { createdAt: 'desc' } })
+}
