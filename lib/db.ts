@@ -1,4 +1,4 @@
-import prisma from '@/lib/prisma'
+import prisma from './prisma'
 
 function hasModel(name: string) {
   // @ts-ignore
@@ -15,7 +15,14 @@ export async function createPost(data: {
   rationale?: string | null
   sources?: any
 }) {
-  return prisma.post.create({ data })
+  // Map incoming `text` to the Prisma `Post.body` field used in the dev schema.
+  const mapped: any = { agentId: data.agentId, body: data.text }
+  if (typeof data.sources !== 'undefined') mapped.sources = typeof data.sources === 'string' ? data.sources : JSON.stringify(data.sources)
+  // Support optional publish flags
+  if ((data as any).publishStatus) mapped.publishStatus = (data as any).publishStatus
+  if ((data as any).publishedAt) mapped.publishedAt = (data as any).publishedAt
+
+  return prisma.post.create({ data: mapped })
 }
 
 export async function createEvaluatedTopic(data: {
@@ -25,19 +32,28 @@ export async function createEvaluatedTopic(data: {
   status: string
   reason?: string | null
 }) {
-  return prisma.evaluatedTopic.create({ data })
+  // Map to CandidateTopic model in the dev schema
+  const mapped: any = { agentId: data.agentId, title: data.title }
+  if (data.url) mapped.originalUrl = data.url
+  if (data.status) mapped.editorialDecision = data.status
+  if (data.reason) mapped.rejectionReason = data.reason
+  // discoveryMode is required in the dev schema; default to 'EDITORIAL' for evaluated topics
+  if (!mapped.discoveryMode) mapped.discoveryMode = 'EDITORIAL'
+  return prisma.candidateTopic.create({ data: mapped })
 }
 
 export async function getAgentById(id: string) {
   return prisma.agent.findUnique({ where: { id } })
 }
 
-export async function listPostsByAgent(agentId: string) {
-  return prisma.post.findMany({ where: { agentId }, orderBy: { createdAt: 'desc' } })
+export async function listPostsByAgent(agentId: string, includeDrafts = false) {
+  const where: any = { agentId }
+  if (!includeDrafts) where.publishStatus = 'PUBLISHED'
+  return prisma.post.findMany({ where, orderBy: { createdAt: 'desc' } })
 }
 
 export async function listEvaluatedTopicsByAgent(agentId: string) {
-  return prisma.evaluatedTopic.findMany({ where: { agentId }, orderBy: { createdAt: 'desc' } })
+  return prisma.candidateTopic.findMany({ where: { agentId }, orderBy: { createdAt: 'desc' } })
 }
 
 export async function getAllAgents() {
@@ -159,11 +175,12 @@ export async function listSourceCredibilities() {
 }
 
 export async function upsertAgentPersona(agentId: string, personaConfig: string) {
-  return prisma.agent.update({ where: { id: agentId }, data: { personaConfig } })
+  // Dev schema does not have personaConfig; store under description
+  return prisma.agent.update({ where: { id: agentId }, data: { description: personaConfig } })
 }
 
 export async function getAgentPersona(agentId: string) {
-  return prisma.agent.findUnique({ where: { id: agentId }, select: { id: true, personaConfig: true } })
+  return prisma.agent.findUnique({ where: { id: agentId }, select: { id: true, description: true } })
 }
 
 export async function createPostVersion(data: { postId: string; text: string; rationale?: string | null; sources?: string | null }) {

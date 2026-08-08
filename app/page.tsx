@@ -365,7 +365,7 @@ export default function Home() {
                       </div>
 
                       <p style={{ fontSize: 16, lineHeight: 1.6, marginBottom: 16, color: '#f1f5f9', whiteSpace: 'pre-wrap' }}>
-                        {post.text}
+                        {post.body || post.text}
                       </p>
 
                       <div style={{ background: 'rgba(56, 189, 248, 0.05)', borderLeft: '3px solid var(--accent-cyan)', padding: 14, borderRadius: '0 10px 10px 0', marginBottom: 14 }}>
@@ -373,13 +373,13 @@ export default function Home() {
                           🧠 Editorial Publishing Rationale
                         </div>
                         <p style={{ fontSize: 14, color: 'var(--text-muted)', lineHeight: 1.5 }}>
-                          {post.rationale}
+                          {post.rationale || ''}
                         </p>
                       </div>
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                         <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)' }}>Sources:</span>
-                        {post.sources.map((src, i) => (
+                        {(post.sources || []).map((src, i) => (
                           <a key={i} href={src} target="_blank" rel="noreferrer" className="badge badge-purple">
                             🔗 {src}
                           </a>

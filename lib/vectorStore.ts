@@ -10,7 +10,7 @@ export async function upsertEmbedding(postId: string | null, agentId: string | n
     try {
       await pgv.upsertEmbeddingPg(null, vector, payload)
     } catch (e) {
-      console.warn('pgvector upsert failed, falling back to DB:', e.message)
+      console.warn('pgvector upsert failed, falling back to DB:', (e as any)?.message || e)
     }
   }
   return db.createEmbedding({ postId, agentId, vector: JSON.stringify(vector) })
@@ -22,7 +22,7 @@ export async function semanticSearchByVector(target: number[], k = 5) {
       const res = await pgv.searchVectorPg(target, k)
       return res
     } catch (e) {
-      console.warn('pgvector search failed, falling back to DB:', e.message)
+      console.warn('pgvector search failed, falling back to DB:', (e as any)?.message || e)
     }
   }
   const candidates = await db.findEmbeddings(1000)

@@ -1,16 +1,11 @@
-import { OpenAI } from 'openai'
-import { fetchLiveTechTopics } from '@/lib/discovery'
-import type { Topic } from '@/lib/discovery'
-import {
-  createEvaluatedTopic,
-  createPost,
-  getAgentById,
-  listEvaluatedTopicsByAgent,
-  listPostsByAgent,
-} from '@/lib/db'
-import * as db from '@/lib/db'
-import * as emb from '@/lib/embeddings'
-import validateEditorialResult, { fallbackEditorialEvaluation } from '@/lib/editorial'
+const { OpenAI } = require('openai')
+const { fetchLiveTechTopics } = require('./discovery')
+type Topic = any
+// @ts-ignore
+const { createEvaluatedTopic, createPost, getAgentById, listEvaluatedTopicsByAgent, listPostsByAgent } = require('./db')
+const db = require('./db')
+const emb = require('./embeddings')
+const { default: validateEditorialResult, fallbackEditorialEvaluation } = require('./editorial')
 
 type AgentPersona = {
   id: string
@@ -56,7 +51,7 @@ const editorialUserPrompt = ({
 }: {
   persona: AgentPersona
   publishedHistory: string[]
-  candidates: Topic[]
+  candidates: any[]
 }) => `Agent Persona:
 - Name: ${persona.name}
 - Specialized Domain: ${persona.domain}
@@ -91,7 +86,7 @@ const contentUserPrompt = ({
   rejectedTopics,
 }: {
   persona: AgentPersona
-  winningTopic: Topic
+  winningTopic: any
   rejectedTopics: Array<{ title: string; reason: string }>
 }) => `Persona Profile:
 - Name: ${persona.name}
@@ -133,7 +128,6 @@ function fallbackContentGeneration(
 
   const title = winningTopic.title
   const snippet = winningTopic.contentSnippet || title
-
   const text = `Insights on "${title}" from ${name} (${domain}):\n\n` +
     `${snippet}\n\n` +
     `Key Takeaway: As developments in ${domain} accelerate, prioritizing practical execution, verifiability, and robust architecture is essential.\n\n` +
@@ -170,8 +164,8 @@ export async function runAutonomousCycle(agentId: string) {
   const evaluatedTopicsHistory = await listEvaluatedTopicsByAgent(agentId)
   
   const publishedTitles = [
-    ...postsHistory.map((p) => p.text.slice(0, 40)),
-    ...evaluatedTopicsHistory.filter((t) => t.status === 'PUBLISHED').map((t) => t.title),
+    ...postsHistory.map((p: any) => (p.body || '').slice(0, 40)),
+    ...evaluatedTopicsHistory.filter((t: any) => (t.editorialDecision || t.status) === 'PUBLISHED').map((t: any) => t.title),
   ]
 
   // Step 1: Discover topics from live information sources
@@ -179,7 +173,7 @@ export async function runAutonomousCycle(agentId: string) {
 
   // Compute embeddings for candidate topics and load past embeddings for novelty checks
   const candidateVectors = await Promise.all(
-    candidateTopics.map(async (t) => ({
+    candidateTopics.map(async (t: any) => ({
       topic: t,
       vector: await emb.generateEmbedding((t.title || '') + '\n' + (t.contentSnippet || '')),
     }))
@@ -250,6 +244,10 @@ export async function runAutonomousCycle(agentId: string) {
     editorialData = fallbackEditorialEvaluation(persona, publishedTitles, candidateTopics)
   }
 
+  if (!editorialData) {
+    throw new Error('Editorial evaluation failed and no fallback produced a result')
+  }
+
   // Record editorial decision log
   try {
     await db.createDecisionLog({ agentId, type: 'EDITORIAL', outcome: editorialData.selected !== null ? 'SELECTED' : 'NONE', payload: JSON.stringify(editorialData) })
@@ -260,7 +258,7 @@ export async function runAutonomousCycle(agentId: string) {
   // Store all evaluated topics in database (memory & transparency)
   await Promise.all(
     editorialData.results.map((result) => {
-      const matched = candidateTopics.find((t) => t.title === result.title)
+      const matched = candidateTopics.find((t: any) => t.title === result.title)
       const evalPromise = createEvaluatedTopic({
         agentId,
         title: result.title,
@@ -289,7 +287,7 @@ export async function runAutonomousCycle(agentId: string) {
   if (pastEmbeddings && pastEmbeddings.length > 0) {
     const similarityThreshold = 0.85
     for (const cv of candidateVectors) {
-      const sims = pastEmbeddings.map((p) => emb.cosineSimilarity(cv.vector, emb.parseVector(p.vector)))
+      const sims = pastEmbeddings.map((p: any) => emb.cosineSimilarity(cv.vector, emb.parseVector(p.vector)))
       const maxSim = Math.max(...sims, 0)
       if (maxSim >= similarityThreshold) {
         // find matching result and mark as rejected due to duplication if not already rejected
@@ -366,19 +364,21 @@ export async function runAutonomousCycle(agentId: string) {
     agentId,
     text: contentData.text,
     rationale: contentData.rationale,
-    sources: JSON.stringify(contentData.sources.length ? contentData.sources : [winningTopic.url]),
+    sources: contentData.sources && contentData.sources.length ? contentData.sources : [winningTopic.url],
+    publishStatus: 'PUBLISHED',
+    publishedAt: new Date(),
   })
 
   // Persist version for the post
   try {
-    await db.createPostVersion({ postId: post.id, text: post.text, rationale: post.rationale, sources: post.sources })
+    await db.createPostVersion({ postId: post.id, text: post.body, rationale: contentData.rationale, sources: post.sources })
   } catch (e) {
     console.warn('Failed to create post version', e)
   }
 
   // Persist embedding for the newly created post
   try {
-    const postVec = await emb.generateEmbedding(post.text || post.rationale || '')
+    const postVec = await emb.generateEmbedding(post.body || '')
     await db.createEmbedding({ postId: post.id, agentId, vector: emb.serializeVector(postVec) })
     try {
       await db.createDecisionLog({ agentId, type: 'CONTENT', outcome: 'PUBLISHED', payload: JSON.stringify({ postId: post.id, title: winningTopic.title }) })
@@ -399,8 +399,8 @@ export async function runAutonomousCycle(agentId: string) {
         post: {
           id: post.id,
           createdAt: post.createdAt,
-          text: post.text,
-          rationale: post.rationale,
+          text: post.body,
+          rationale: null,
           sources: JSON.parse(post.sources || '[]'),
         },
       }
@@ -418,8 +418,8 @@ export async function runAutonomousCycle(agentId: string) {
     post: {
       id: post.id,
       createdAt: post.createdAt.toISOString(),
-      text: post.text,
-      rationale: post.rationale,
+      text: post.body,
+      rationale: contentData.rationale,
       sources: contentData.sources,
     },
     winningTopic,

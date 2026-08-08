@@ -1,6 +1,6 @@
 generator client {
   provider = "prisma-client-js"
-  output   = "./node_modules/@prisma/client"
+  output   = "../node_modules/.prisma/client"
 }
 
 datasource db {
@@ -8,20 +8,7 @@ datasource db {
   url      = "file:./dev.db"
 }
 
-enum AgentRunStatus {
-  QUEUED
-  RUNNING
-  SUCCEEDED
-  FAILED
-  SKIPPED
-}
-
-enum PublishStatus {
-  DRAFT
-  SCHEDULED
-  PUBLISHED
-  FAILED
-}
+// SQLite does not support native enums in this dev schema; use string fields instead.
 
 model Agent {
   id                 String   @id @default(uuid())
@@ -57,7 +44,7 @@ model AgentRun {
   id               String        @id @default(uuid())
   agent            Agent         @relation(fields: [agentId], references: [id])
   agentId          String
-  status           AgentRunStatus
+  status           String
   currentStage     String?
   discoveryMode    String?
   candidatesTotal  Int?          @default(0)
@@ -115,7 +102,7 @@ model Post {
   mainClaims       String?
   sources          String?
   platform         String?
-  publishStatus    PublishStatus @default(DRAFT)
+  publishStatus    String @default("DRAFT")
   publishMode      String?
   scheduledAt      DateTime?
   publishedAt      DateTime?

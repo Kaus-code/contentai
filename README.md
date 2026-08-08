@@ -1,210 +1,111 @@
-# Autonomous AI Creator — Autonomous Editorial Personas for AI & Technology
+# Autonomous AI Creator — Autonomous Editorial Personas
 
-A focused Next.js starter that runs autonomous editorial AI personas to discover timely AI/tech topics, apply editorial judgment, and publish short posts over time. The system emphasizes memory, explainability, and safety while operating without further human prompts.
+This repository is a Next.js (App Router) + TypeScript starter that runs autonomous editorial AI personas. It discovers timely tech topics, applies an editorial rubric, and publishes short posts. A SQLite dev schema is included so you can run locally without a Postgres `DATABASE_URL`.
 
-## Quick start
+**This README highlights the developer workflow, local dev (SQLite) fallback, key scripts, and troubleshooting notes.**
 
-1. Install dependencies and generate Prisma client:
+**Prerequisites**
+- Node 18+ / npm
+- (Optional) A Postgres instance if you intend to use `pgvector` in production
 
-```bash
-npm install
-npx prisma generate
-```
-
-2. Apply database schema changes (migrations created in this branch):
-
-```bash
-npx prisma migrate dev --name add-scheduling-workflows-metrics
-```
-
-3. Run the dev server:
-
-```bash
-npm run dev
-```
-
-4. Initialize an agent (creates first published post):
-
-```bash
-curl -X POST http://localhost:3000/api/agent/init \
-  -H "Content-Type: application/json" \
-  -d '{"persona":{"name":"Ada","domain":"AI Security"}}'
-```
-
-## New features in this branch
-- Scheduling: `scheduleIntervalMinutes` and `schedulePaused` on `Agent`, scheduler functions in `lib/scheduler.ts`, and schedule API at `/api/agent/schedule`.
-- Workflows: `Workflow` and `WorkflowStep` models, APIs to create/list workflows and CRUD for steps at `/api/agent/workflow` and `/api/agent/workflow/step`.
-- Analytics: `PostMetric` model, endpoints at `/api/agent/metrics` and aggregated view `/api/agent/analytics`, plus a simulate button in the UI.
-- Frontend: Agent settings, workflows, and analytics pages under `/agents/[agentId]/` with basic CRUD.
-- Tests: lightweight integration tests in `scripts/tests/` and a runner `scripts/tests/run-all.ts`.
-
-- Source Credibility: heuristic scoring and persisted `SourceCredibility` model with a UI to browse scores.
-- Embeddings / Memory: persistent `Embedding` model and APIs for semantic deduplication and similarity search.
-- Explainability: `DecisionLog` model + API and a Logs UI for auditability of editorial/novelty/content decisions.
-- Fact-check scaffold: simple URL/snippet fact-check utilities and API for basic evidence checks.
-
-## Tests
-Run the test runner (requires `ts-node`):
-
-```bash
-npx ts-node scripts/tests/run-all.ts
-```
-
-Or run individual tests via `npx ts-node --esm scripts/tests/<test>.ts`.
-
-## Getting Started (detailed)
-
-Follow these steps to run the project locally and validate autonomous behavior.
-
-1. Install dependencies:
+**Install**
 
 ```bash
 npm install
-```
-
-2. (Optional) Set environment variables. For better quality embeddings and LLM outputs, set `OPENAI_API_KEY`.
-
-- macOS / Linux:
-
-```bash
-export OPENAI_API_KEY="sk-..."
-```
-
-- Windows PowerShell:
-
-```powershell
-$env:OPENAI_API_KEY = "sk-..."
-```
-
-3. Generate Prisma client and apply migrations (creates/updates local SQLite `prisma/dev.db`):
-
-```bash
-npx prisma generate
-npx prisma migrate dev --name init
-```
-
-4. Start the development server:
-
-```bash
-npm run dev
-```
-
-5. Initialize an agent (once):
-
-```bash
-curl -X POST http://localhost:3000/api/agent/init \
-  -H "Content-Type: application/json" \
-  -d '{"persona":{"name":"Ada","domain":"AI Security"}}'
-```
-
-6. Inspect the feed and logs in the UI or via API:
-
-- UI: `http://localhost:3000` → create/inspect agents and view `Agents` pages.
-- API: `GET /api/agent/feed?agentId=YOUR_AGENT_ID` and `GET /api/agent/logs?agentId=YOUR_AGENT_ID`.
-
-If you plan to push to `main`, run the checks listed earlier under "Before pushing to `main`".
-
-## Notes
-- This branch includes Prisma schema updates; run migrations before starting the app.
-- The UI pages are intentionally minimal and can be extended (drag/drop ordering, auth, etc.).
-# New UI pages added:
-- `app/agents/[agentId]/logs` — view decision logs
-- `app/agents/[agentId]/sources` — view source credibility scores
-
-If you want, I can open a PR now with these changes — or push to a branch name you prefer.
-
-## Before pushing to `main`
-Run these checks locally before merging or pushing to `main` to avoid migration/runtime surprises.
-
-1. Generate Prisma client and run migrations (apply the new schema):
-
-```bash
-npx prisma generate
-npx prisma migrate dev --name add-embeddings-decisionlogs-sources
-```
-
-2. Run tests and smoke checks:
-
-```bash
-npx ts-node scripts/tests/run-all.ts
-node scripts/smoke-test.js
-```
-
-3. Optional: set `OPENAI_API_KEY` in your environment for higher-quality embeddings and LLM outputs.
-
-4. Start the dev server and verify the UI pages load:
-
-```bash
-npm run dev
-# then visit http://localhost:3000 and the agent pages under /agents
-```
-
-After these pass, it's safe to push to `main` or open a PR for review.
-# Autonomous AI Creator — Starter
-
-This repo is a starter Next.js (App Router) + TypeScript project using Prisma + SQLite for development.
-
-Quick start:
-
-```bash
-npm install
-npm run prisma:generate
-npm run prisma:migrate
-npm run dev
-```
-
-Manual DB fallback
-------------------
-If automated Prisma migrations cannot run in your environment (no Docker, CI restrictions, or connectivity issues), you can apply SQL manually. Files are provided in the `prisma/` folder:
-
-- `prisma/pgvector_setup.sql` — provisions `pgvector` and related extension helpers.
-- `prisma/manual_migration.sql` — CREATE TABLE statements for the core schema (run this after `pgvector_setup.sql`).
-- `prisma/manual_seed.sql` — a small seed that inserts a default `Agent` persona.
-
-Run them in order against your Postgres instance:
-
-```bash
-# create extensions
-psql $DATABASE_URL -f prisma/pgvector_setup.sql
-
-# create schema
-psql $DATABASE_URL -f prisma/manual_migration.sql
-
-# seed initial data
-psql $DATABASE_URL -f prisma/manual_seed.sql
-```
-
-After running the SQL, generate the Prisma client:
-
-```bash
 npx prisma generate
 ```
 
-Then start the app as usual.
+**Local dev (recommended — SQLite fallback)**
 
-Using SQLite for local development (no DATABASE_URL)
---------------------------------------------------
-If you don't have a Postgres `DATABASE_URL`, you can run the project locally using the bundled SQLite dev schema. This requires no external DB:
-
-1. Generate the Prisma client for the dev schema:
+1. Generate the Prisma client for the dev schema (already set up to output to node_modules):
 
 ```bash
 npm run prisma:generate:dev
 ```
 
-2. Run migrations for the SQLite dev schema (creates `prisma/dev.db`):
+2. Push the dev schema (creates `prisma/dev.db`):
 
 ```bash
 npm run migrate:dev:sqlite
 ```
 
-3. Seed data (SQLite): either use a small script that uses the generated Prisma client, or open `prisma/manual_seed.sql` and translate it for sqlite CLI. The simplest path is to run a quick Node seed that connects via the generated client.
+If `prisma db push` asks to reset the DB, confirm if this is a local dev database you can reinitialize.
 
-4. Start the dev server:
+3. Seed (dev):
+
+```bash
+# run the JS dev seeder
+node scripts/seed-dev.js
+```
+
+4. Start the Next dev server:
 
 ```bash
 npm run dev
 ```
 
-This path is recommended for local experimentation when you don't have Postgres available.
+5. Open the app: http://localhost:3000 — enter the agent id shown by the seeder or use the UI to initialize an agent.
+
+Key scripts (quick reference)
+- `npm run prisma:generate:dev` — generate Prisma client for `prisma/schema.dev.prisma`
+- `npm run migrate:dev:sqlite` — apply dev schema (creates `prisma/dev.db`)
+- `npm run force-publish` — force-create a published post for the first agent (useful for UI testing)
+- `npm run one-cycle:compiled` — compile TypeScript and run the compiled `run-cycle` script
+- `npm run test:all` — run the lightweight fallback tests included under `scripts/tests`
+
+E2E / manual verification
+
+- Initialize an agent (server running):
+
+```bash
+curl -X POST http://localhost:3000/api/agent/init \
+  -H "Content-Type: application/json" \
+  -d '{"persona":{"name":"Ada","domain":"AI Security"}}'
+```
+
+- View feed for an agent:
+
+```bash
+curl "http://localhost:3000/api/agent/feed?agentId=YOUR_AGENT_ID" | jq
+```
+
+- Force a published post for UI testing (creates Post + PostVersion + Embedding + DecisionLog):
+
+```bash
+npm run force-publish
+```
+
+Developer notes — runtime & path aliases
+
+- During development we use `tsconfig-paths` to resolve `@/lib` aliases. If you run TypeScript files directly with `ts-node`, use this form:
+
+```bash
+npx ts-node -r tsconfig-paths/register scripts/run-cycle.ts
+```
+
+- A more reliable runner for local CI is the compiled path used here:
+
+```bash
+npm run one-cycle:compiled
+```
+
+Troubleshooting
+
+- If `prisma migrate dev` fails on SQLite due to Postgres-specific SQL in migrations (e.g., `CREATE EXTENSION vector`), use the dev schema `prisma/schema.dev.prisma` and `npm run migrate:dev:sqlite`. We split Postgres-only SQL into manual migration helpers under `prisma/`.
+- If the UI shows empty posts, confirm the API uses `post.body` (SQLite dev schema) or `post.text` (Postgres schema). The feed endpoint will return `text: p.body ?? p.text` to cover both.
+
+Where to look in the repo
+- `lib/agent-engine.ts` — autonomous cycle orchestration
+- `lib/editorial.ts` — editorial 100-point rubric + Zod schemas
+- `lib/db.ts` — Prisma helpers tuned to dev schema
+- `prisma/schema.dev.prisma` — SQLite dev schema
+- `scripts/seed-dev.js`, `scripts/force-publish.js`, `scripts/run-cycle-simple.js` — useful dev/test helpers
+
+Next steps I can do for you
+- Clean up the launcher and add a concise `README` run section (I can commit this change).
+- Make `npm run one-cycle` wrap compile+run and add a `--force` option to `force-publish`.
+- Extend tests to cover the full run cycle including embeddings and webhook simulation.
+
+If you'd like, I can open a PR with these README and script changes or adjust wording to match your preferred developer workflow.
+
 

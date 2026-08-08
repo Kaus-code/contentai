@@ -1,19 +1,5 @@
 import { z } from 'zod'
 
-export const CandidateSchema = z.object({
-  title: z.string(),
-  score: z.number().min(0).max(10),
-  decision: z.enum(['PUBLISHED', 'REJECTED']),
-  reason: z.string(),
-})
-
-export const EditorialSchema = z.object({
-  selected: z.number().int().nullable(),
-  results: z.array(CandidateSchema),
-})
-
-import { z } from 'zod'
-
 // 100-point rubric breakdown
 export const BreakdownSchema = z.object({
   domainAlignment: z.number().min(0).max(30),
@@ -116,7 +102,7 @@ export function fallbackEditorialEvaluation(
   const results = candidates.map((c, idx) => {
     const breakdown = computeBreakdownForCandidate(persona.domain, publishedHistory, c.title, c.contentSnippet || '', c.source || '')
     const score = breakdown.total
-    const decision = score >= 60 ? 'PUBLISHED' : 'REJECTED'
+    const decision: 'PUBLISHED' | 'REJECTED' = score >= 60 ? 'PUBLISHED' : 'REJECTED'
     if (score > bestScore && decision === 'PUBLISHED') {
       bestScore = score
       bestIndex = idx

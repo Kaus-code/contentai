@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { listPostsByAgent, getAgentById } from '@/lib/db'
-import { checkAndAutoPublish } from '@/lib/scheduler'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,9 +17,8 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ posts: [] }, { status: 200 })
     }
 
-    // Check if auto-publish cycle should trigger based on elapsed time
-    await checkAndAutoPublish(agentId, 15)
-
+    // Do NOT auto-trigger cycles from read endpoints — reads should be idempotent.
+    // Use `POST /api/agent/cycle` or registered background scheduler to trigger cycles.
     const posts = await listPostsByAgent(agentId)
 
     const normalized = posts
@@ -44,11 +42,14 @@ export async function GET(req: NextRequest) {
           sources = [String(rawSources)]
         }
 
+        const textVal = (p as any).body ?? (p as any).text ?? ''
         return {
           id: p.id,
           createdAt: p.createdAt.toISOString(),
-          text: p.text,
-          rationale: p.rationale ?? '',
+          // Return both `body` and `text` to cover both schemas and frontend expectations
+          body: (p as any).body ?? (p as any).text ?? '',
+          text: textVal,
+          rationale: (p as any).rationale ?? '',
           sources,
         }
       })
