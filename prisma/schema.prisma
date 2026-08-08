@@ -49,6 +49,7 @@ model Agent {
   runs               AgentRun[]
   posts              Post[]
   workflows          Workflow[]
+  evaluatedTopics    CandidateTopic[]
 }
 
 model AgentRun {
@@ -107,7 +108,7 @@ model Post {
   agent            Agent    @relation(fields: [agentId], references: [id])
   agentId          String
   candidate        CandidateTopic? @relation(fields: [candidateId], references: [id])
-  candidateId      String?
+  candidateId      String? @unique
   title            String?
   body             String
   mainClaims       String?
