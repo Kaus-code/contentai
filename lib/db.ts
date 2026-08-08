@@ -250,3 +250,25 @@ export async function getVariantMetricsForPost(postId: string) {
   // @ts-ignore
   return prisma.variantMetric.findMany({ where: { postVariant: { postId } }, include: { postVariant: true } })
 }
+
+export async function tryAcquireAgentLock(agentId: string, lockMs = 5 * 60 * 1000) {
+  const until = new Date(Date.now() + lockMs)
+  try {
+    // @ts-ignore
+    const res = await prisma.agent.updateMany({ where: { id: agentId, OR: [{ lockedUntil: null }, { lockedUntil: { lt: new Date() } }] }, data: { lockedUntil: until } })
+    return (res && (res as any).count && (res as any).count > 0) || (res.count && res.count > 0)
+  } catch (e) {
+    console.warn('tryAcquireAgentLock failed', e)
+    return false
+  }
+}
+
+export async function releaseAgentLock(agentId: string) {
+  try {
+    // @ts-ignore
+    return prisma.agent.update({ where: { id: agentId }, data: { lockedUntil: null } })
+  } catch (e) {
+    console.warn('releaseAgentLock failed', e)
+    return null
+  }
+}
