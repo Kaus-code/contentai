@@ -10,6 +10,7 @@ import {
 } from '@/lib/db'
 import * as db from '@/lib/db'
 import * as emb from '@/lib/embeddings'
+import validateEditorialResult from '@/lib/editorial'
 
 type AgentPersona = {
   id: string
@@ -291,7 +292,16 @@ export async function runAutonomousCycle(agentId: string) {
       })
 
       const raw = completion.choices[0]?.message?.content || ''
-      editorialData = parseJson<EditorialResult>(raw)
+      // First parse raw JSON
+      const parsed = parseJson<EditorialResult>(raw)
+      if (parsed) {
+        const validated = validateEditorialResult(parsed)
+        if (validated.valid) {
+          editorialData = validated.data
+        } else {
+          console.warn('Editorial LLM output failed validation:', validated.error)
+        }
+      }
     } catch (err) {
       console.warn('OpenAI Editorial evaluation failed, falling back to local engine:', err)
     }

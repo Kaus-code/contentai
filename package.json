@@ -16,10 +16,11 @@
       "one-cycle": "ts-node scripts/run-experiments.ts",
       "seed": "ts-node prisma/seed.ts",
     "run:experiments": "ts-node scripts/run-experiments.ts",
-    "test:all": "ts-node scripts/tests/run-all.ts"
+    "test:all": "ts-node scripts/tests/editorial.test.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.0.0",
+    "zod": "^3.21.4",
     "pg": "^8.0.0",
     "next": "^14.0.0",
     "openai": "^4.9.0",
