@@ -10,7 +10,7 @@ import {
 } from '@/lib/db'
 import * as db from '@/lib/db'
 import * as emb from '@/lib/embeddings'
-import validateEditorialResult from '@/lib/editorial'
+import validateEditorialResult, { fallbackEditorialEvaluation } from '@/lib/editorial'
 
 type AgentPersona = {
   id: string
@@ -121,69 +121,7 @@ function parseJson<T>(input: string): T | null {
   }
 }
 
-// Heuristic fallback generator when LLM API keys are unavailable or fail
-function fallbackEditorialEvaluation(
-  persona: AgentPersona,
-  publishedHistory: string[],
-  candidates: Topic[]
-): EditorialResult {
-  const normPublished = publishedHistory.map((t) => t.toLowerCase())
-  const keywords = persona.domain.toLowerCase().split(/\s+/).filter((k) => k.length > 2)
-
-  let bestIndex: number | null = null
-  let maxScore = -1
-
-  const results: EditorialResult['results'] = candidates.map((c, idx) => {
-    const titleLower = c.title.toLowerCase()
-    
-    // Memory check against ALREADY PUBLISHED posts
-    const isDuplicate = normPublished.some(
-      (p) => p.includes(titleLower.slice(0, 20)) || titleLower.includes(p.slice(0, 20))
-    )
-
-    if (isDuplicate) {
-      return {
-        title: c.title,
-        score: 2,
-        decision: 'REJECTED',
-        reason: 'Rejected by memory filter: topic concept was previously published in feed.',
-      }
-    }
-
-    const domainMatches = keywords.filter((k) => titleLower.includes(k) || c.contentSnippet.toLowerCase().includes(k))
-    const isGeneric = titleLower.includes('hamster') || titleLower.includes('sad') || titleLower.length < 8
-
-    if (isGeneric && domainMatches.length === 0) {
-      return {
-        title: c.title,
-        score: 3,
-        decision: 'REJECTED',
-        reason: `Off-domain topic: title does not directly align with ${persona.name}'s focus on ${persona.domain}.`,
-      }
-    }
-
-    const score = Math.min(10, 6 + domainMatches.length * 2 + (c.source === 'arxiv' || c.source === 'dev.to' ? 1 : 0))
-
-    if (score > maxScore && score >= 6) {
-      maxScore = score
-      bestIndex = idx
-    }
-
-    return {
-      title: c.title,
-      score,
-      decision: 'REJECTED',
-      reason: domainMatches.length > 0 ? `Good alignment with ${persona.domain}.` : `General tech topic, evaluated score ${score}/10.`,
-    }
-  })
-
-  if (bestIndex !== null) {
-    results[bestIndex].decision = 'PUBLISHED'
-    results[bestIndex].reason = `Selected as top candidate (score ${maxScore}/10) for domain ${persona.domain}.`
-  }
-
-  return { selected: bestIndex, results }
-}
+// fallbackEditorialEvaluation imported from lib/editorial; uses 100-point rubric
 
 function fallbackContentGeneration(
   persona: AgentPersona,
