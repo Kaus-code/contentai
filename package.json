@@ -10,6 +10,11 @@
     "test:integration": "node scripts/test-integration.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev --name init",
+    "migrate:dev": "prisma migrate dev",
+    "migrate:deploy": "prisma migrate deploy",
+    "db:up": "docker-compose up -d db",
+      "one-cycle": "ts-node scripts/run-experiments.ts",
+      "seed": "ts-node prisma/seed.ts",
     "run:experiments": "ts-node scripts/run-experiments.ts",
     "test:all": "ts-node scripts/tests/run-all.ts"
   },
