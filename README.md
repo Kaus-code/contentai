@@ -152,3 +152,33 @@ npm run prisma:generate
 npm run prisma:migrate
 npm run dev
 ```
+
+Manual DB fallback
+------------------
+If automated Prisma migrations cannot run in your environment (no Docker, CI restrictions, or connectivity issues), you can apply SQL manually. Files are provided in the `prisma/` folder:
+
+- `prisma/pgvector_setup.sql` — provisions `pgvector` and related extension helpers.
+- `prisma/manual_migration.sql` — CREATE TABLE statements for the core schema (run this after `pgvector_setup.sql`).
+- `prisma/manual_seed.sql` — a small seed that inserts a default `Agent` persona.
+
+Run them in order against your Postgres instance:
+
+```bash
+# create extensions
+psql $DATABASE_URL -f prisma/pgvector_setup.sql
+
+# create schema
+psql $DATABASE_URL -f prisma/manual_migration.sql
+
+# seed initial data
+psql $DATABASE_URL -f prisma/manual_seed.sql
+```
+
+After running the SQL, generate the Prisma client:
+
+```bash
+npx prisma generate
+```
+
+Then start the app as usual.
+
