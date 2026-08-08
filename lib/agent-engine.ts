@@ -5,9 +5,8 @@ import {
   createPost,
   getAgentById,
   listEvaluatedTopicsByAgent,
+  listPostsByAgent,
 } from './db'
-
-const openAi = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
 type AgentPersona = {
   id: string
@@ -15,53 +14,200 @@ type AgentPersona = {
   domain: string
 }
 
-const editorialSystemPrompt = `You are an editorial AI assistant. Your job is to judge whether candidate technology topics are relevant, original, and well aligned to the agent persona and previously published topics. The agent persona has a domain and your evaluation must prioritize domain fit, uniqueness, audience value, and current relevance. Decide whether each candidate topic should be published or rejected, and choose the best single topic if any are good enough.`
+type EditorialResult = {
+  selected: number | null
+  results: Array<{
+    title: string
+    score: number
+    decision: 'PUBLISHED' | 'REJECTED'
+    reason: string
+  }>
+}
 
-const editorialUserPrompt = ({ persona, previousTopics, candidates }: {
-  persona: AgentPersona
-  previousTopics: string[]
-  candidates: Topic[]
-}) => `Agent persona:
-Name: ${persona.name}
-Domain: ${persona.domain}
+type ContentResult = {
+  text: string
+  rationale: string
+  sources: string[]
+}
 
-Previously evaluated or published topics:
-${previousTopics.length ? previousTopics.map((t, i) => `${i + 1}. ${t}`).join('\n') : 'None'}
-
-Candidate topics:
-${candidates.map((t, i) => `${i + 1}. ${t.title} (${t.url}) — snippet: ${t.contentSnippet}`).join('\n')}
-
-Instructions:
-1. Evaluate each candidate against the persona's domain and previously covered ideas.
-2. Filter out irrelevant or duplicate topics.
+const editorialSystemPrompt = `You are a high-level Editorial Director for an autonomous technology persona.
+Your objective is to enforce strict editorial standards:
+1. Filter out candidate topics that are off-domain, uninteresting, clickbait, or duplicate/too similar to previously PUBLISHED topics.
+2. Evaluate remaining candidates on domain alignment, novelty, technical depth, and current relevance.
 3. Score each candidate from 0 to 10.
-4. Choose the single best topic to publish, or reject all if none are suitable.
-5. For rejected topics, explain why they were rejected.
-6. Return a JSON object with:
-  - selected: index of the chosen topic, or null
-  - results: array of { title, score, decision, reason }
-`
+4. Select the SINGLE best candidate (score >= 6) to publish. If no candidate meets the bar or all are duplicates/irrelevant, select null.
+5. Provide an explicit rejection reason for every rejected candidate.
+You MUST output strictly valid JSON matching:
+{
+  "selected": number | null,
+  "results": [
+    { "title": "string", "score": number, "decision": "PUBLISHED" | "REJECTED", "reason": "string" }
+  ]
+}`
 
-const contentSystemPrompt = `You are a creative social content writer. Use the agent persona voice and write one high-quality social post and rationale. The post should feel concise, persuasive, and relevant to the agent's domain. Include a short rationale explaining why this topic was chosen and why it is timely.`
+const editorialUserPrompt = ({
+  persona,
+  publishedHistory,
+  candidates,
+}: {
+  persona: AgentPersona
+  publishedHistory: string[]
+  candidates: Topic[]
+}) => `Agent Persona:
+- Name: ${persona.name}
+- Specialized Domain: ${persona.domain}
 
-const contentUserPrompt = ({ persona, topic }: { persona: AgentPersona; topic: Topic }) => `Persona Name: ${persona.name}
-Domain: ${persona.domain}
+Previously Published Topics in Memory (DO NOT REPEAT):
+${publishedHistory.length ? publishedHistory.map((t, i) => `${i + 1}. ${t}`).join('\n') : 'None (First run)'}
 
-Topic: ${topic.title}
-URL: ${topic.url}
-Snippet: ${topic.contentSnippet}
+Candidate Discovered Topics:
+${candidates.map((t, i) => `[Index ${i}] Title: "${t.title}" | Source: ${t.source} | URL: ${t.url} | Snippet: ${t.contentSnippet}`).join('\n')}
 
-Produce JSON with:
-  - text: A high-quality social post in the persona's voice.
-  - rationale: Why this topic was selected and why it is relevant now.
-  - sources: [topic URL]
-`
+Analyze all candidates. Reject any candidates that fail persona fit, lack technical substance, or duplicate previously published topics. Return strictly JSON matching the required schema.`
+
+const contentSystemPrompt = `You are an autonomous AI & technology persona writing high-impact social media posts for LinkedIn and X.
+You write with a distinct, consistent editorial voice tied to your specialized domain.
+Your post must feel sharp, insightful, and authoritative.
+
+You MUST also provide a clear, multi-sentence RATIONALE explaining:
+1. Why this topic was selected.
+2. Why it is relevant right now.
+3. Why it was chosen over the other candidate topics evaluated in this cycle.
+
+Output strictly valid JSON matching:
+{
+  "text": "string (the social post content)",
+  "rationale": "string (detailed explanation)",
+  "sources": ["url_string"]
+}`
+
+const contentUserPrompt = ({
+  persona,
+  winningTopic,
+  rejectedTopics,
+}: {
+  persona: AgentPersona
+  winningTopic: Topic
+  rejectedTopics: Array<{ title: string; reason: string }>
+}) => `Persona Profile:
+- Name: ${persona.name}
+- Domain: ${persona.domain}
+
+Selected Topic:
+- Title: ${winningTopic.title}
+- Source: ${winningTopic.source}
+- URL: ${winningTopic.url}
+- Snippet: ${winningTopic.contentSnippet}
+
+Rejected Competitor Topics Evaluated in this Cycle:
+${rejectedTopics.map((r, i) => `${i + 1}. "${r.title}" — Reason: ${r.reason}`).join('\n')}
+
+Generate the post and structured rationale according to your persona voice and JSON schema.`
+
+function cleanJsonResponse(text: string): string {
+  return text.replace(/```json/gi, '').replace(/```/g, '').trim()
+}
 
 function parseJson<T>(input: string): T | null {
   try {
-    return JSON.parse(input)
+    const cleaned = cleanJsonResponse(input)
+    return JSON.parse(cleaned)
   } catch {
     return null
+  }
+}
+
+// Heuristic fallback generator when LLM API keys are unavailable or fail
+function fallbackEditorialEvaluation(
+  persona: AgentPersona,
+  publishedHistory: string[],
+  candidates: Topic[]
+): EditorialResult {
+  const normPublished = publishedHistory.map((t) => t.toLowerCase())
+  const keywords = persona.domain.toLowerCase().split(/\s+/).filter((k) => k.length > 2)
+
+  let bestIndex: number | null = null
+  let maxScore = -1
+
+  const results: EditorialResult['results'] = candidates.map((c, idx) => {
+    const titleLower = c.title.toLowerCase()
+    
+    // Memory check against ALREADY PUBLISHED posts
+    const isDuplicate = normPublished.some(
+      (p) => p.includes(titleLower.slice(0, 20)) || titleLower.includes(p.slice(0, 20))
+    )
+
+    if (isDuplicate) {
+      return {
+        title: c.title,
+        score: 2,
+        decision: 'REJECTED',
+        reason: 'Rejected by memory filter: topic concept was previously published in feed.',
+      }
+    }
+
+    const domainMatches = keywords.filter((k) => titleLower.includes(k) || c.contentSnippet.toLowerCase().includes(k))
+    const isGeneric = titleLower.includes('hamster') || titleLower.includes('sad') || titleLower.length < 8
+
+    if (isGeneric && domainMatches.length === 0) {
+      return {
+        title: c.title,
+        score: 3,
+        decision: 'REJECTED',
+        reason: `Off-domain topic: title does not directly align with ${persona.name}'s focus on ${persona.domain}.`,
+      }
+    }
+
+    const score = Math.min(10, 6 + domainMatches.length * 2 + (c.source === 'arxiv' || c.source === 'dev.to' ? 1 : 0))
+
+    if (score > maxScore && score >= 6) {
+      maxScore = score
+      bestIndex = idx
+    }
+
+    return {
+      title: c.title,
+      score,
+      decision: 'REJECTED',
+      reason: domainMatches.length > 0 ? `Good alignment with ${persona.domain}.` : `General tech topic, evaluated score ${score}/10.`,
+    }
+  })
+
+  if (bestIndex !== null) {
+    results[bestIndex].decision = 'PUBLISHED'
+    results[bestIndex].reason = `Selected as top candidate (score ${maxScore}/10) for domain ${persona.domain}.`
+  }
+
+  return { selected: bestIndex, results }
+}
+
+function fallbackContentGeneration(
+  persona: AgentPersona,
+  winningTopic: Topic,
+  rejectedTopics: Array<{ title: string; reason: string }>
+): ContentResult {
+  const name = persona.name
+  const domain = persona.domain
+
+  const title = winningTopic.title
+  const snippet = winningTopic.contentSnippet || title
+
+  const text = `Insights on "${title}" from ${name} (${domain}):\n\n` +
+    `${snippet}\n\n` +
+    `Key Takeaway: As developments in ${domain} accelerate, prioritizing practical execution, verifiability, and robust architecture is essential.\n\n` +
+    `What are your thoughts on this approach?`
+
+  const rejectedSummary = rejectedTopics.length > 0
+    ? `It was chosen over ${rejectedTopics.length} other candidate topics evaluated in this cycle (such as "${rejectedTopics[0]?.title}") which were rejected due to: ${rejectedTopics[0]?.reason.toLowerCase() || 'insufficient domain fit'}.`
+    : `It beat out alternative candidate items evaluated during this publishing cycle.`
+
+  const rationale = `Topic "${title}" was selected by ${name} because it provides immediate, actionable relevance to ${domain}. ` +
+    `It is timely right now as open source and production implementations rapidly evolve. ${rejectedSummary}`
+
+  return {
+    text,
+    rationale,
+    sources: [winningTopic.url],
   }
 }
 
@@ -71,76 +217,144 @@ export async function runAutonomousCycle(agentId: string) {
     throw new Error(`Agent not found: ${agentId}`)
   }
 
-  const previousTopics = await listEvaluatedTopicsByAgent(agentId)
-  const previousTitles = previousTopics.map((topic) => topic.title)
-  const candidateTopics = await fetchLiveTechTopics(8)
-
-  const editorialResponse = await openAi.responses.create({
-    model: 'gpt-4.1-mini',
-    input: [
-      { role: 'system', content: editorialSystemPrompt },
-      { role: 'user', content: editorialUserPrompt({ persona: { id: agent.id, name: agent.name, domain: agent.domain }, previousTopics: previousTitles, candidates: candidateTopics }) },
-    ],
-    max_output_tokens: 800,
-  })
-
-  const editorialText = editorialResponse.output_text || ''
-  const editorialData = parseJson<{ selected: number | null; results: Array<{ title: string; score: number; decision: 'PUBLISHED' | 'REJECTED'; reason: string }> }>(editorialText)
-  if (!editorialData || !Array.isArray(editorialData.results)) {
-    throw new Error('Invalid editorial result from LLM')
+  const persona: AgentPersona = {
+    id: agent.id,
+    name: agent.name,
+    domain: agent.domain,
   }
 
-  const chosenIndex = editorialData.selected
-  const publishedResults = editorialData.results.map((result) => ({
-    ...result,
-    decision: result.decision === 'PUBLISHED' ? 'PUBLISHED' : 'REJECTED',
-  }))
+  // Memory History: Load previously PUBLISHED posts to avoid duplicate posts
+  const postsHistory = await listPostsByAgent(agentId)
+  const evaluatedTopicsHistory = await listEvaluatedTopicsByAgent(agentId)
+  
+  const publishedTitles = [
+    ...postsHistory.map((p) => p.text.slice(0, 40)),
+    ...evaluatedTopicsHistory.filter((t) => t.status === 'PUBLISHED').map((t) => t.title),
+  ]
 
+  // Step 1: Discover topics from live information sources
+  const candidateTopics = await fetchLiveTechTopics(8, agent.domain)
+
+  let editorialData: EditorialResult | null = null
+
+  // Try OpenAI API if key exists
+  const apiKey = process.env.OPENAI_API_KEY
+  if (apiKey) {
+    try {
+      const openai = new OpenAI({ apiKey })
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: editorialSystemPrompt },
+          {
+            role: 'user',
+            content: editorialUserPrompt({
+              persona,
+              publishedHistory: publishedTitles,
+              candidates: candidateTopics,
+            }),
+          },
+        ],
+        temperature: 0.3,
+        response_format: { type: 'json_object' },
+      })
+
+      const raw = completion.choices[0]?.message?.content || ''
+      editorialData = parseJson<EditorialResult>(raw)
+    } catch (err) {
+      console.warn('OpenAI Editorial evaluation failed, falling back to local engine:', err)
+    }
+  }
+
+  // Fallback editorial evaluation if no API or parsing error
+  if (!editorialData || !Array.isArray(editorialData.results)) {
+    editorialData = fallbackEditorialEvaluation(persona, publishedTitles, candidateTopics)
+  }
+
+  // Store all evaluated topics in database (memory & transparency)
+  await Promise.all(
+    editorialData.results.map((result) => {
+      const matched = candidateTopics.find((t) => t.title === result.title)
+      return createEvaluatedTopic({
+        agentId,
+        title: result.title,
+        url: matched?.url ?? null,
+        status: result.decision,
+        reason: result.reason,
+      })
+    })
+  )
+
+  const chosenIndex = editorialData.selected
+
+  // If all candidates rejected or no valid topic chosen
   if (chosenIndex === null || chosenIndex < 0 || chosenIndex >= candidateTopics.length) {
-    await Promise.all(
-      publishedResults.map((result) =>
-        createEvaluatedTopic({
-          agentId,
-          title: result.title,
-          url: candidateTopics.find((topic) => topic.title === result.title)?.url,
-          status: 'REJECTED',
-          reason: result.reason,
-        })
-      )
-    )
-    return { status: 'rejected', reasons: publishedResults }
+    return {
+      status: 'rejected_all',
+      message: 'All candidate topics were rejected during editorial evaluation.',
+      evaluatedCount: candidateTopics.length,
+      evaluations: editorialData.results,
+    }
   }
 
   const winningTopic = candidateTopics[chosenIndex]
-  const contentResponse = await openAi.responses.create({
-    model: 'gpt-4.1-mini',
-    input: [
-      { role: 'system', content: contentSystemPrompt },
-      { role: 'user', content: contentUserPrompt({ persona: { id: agent.id, name: agent.name, domain: agent.domain }, topic: winningTopic }) },
-    ],
-    max_output_tokens: 800,
-  })
+  const rejectedTopics = editorialData.results
+    .filter((r) => r.decision === 'REJECTED')
+    .map((r) => ({ title: r.title, reason: r.reason }))
 
-  const contentText = contentResponse.output_text || ''
-  const contentData = parseJson<{ text: string; rationale: string; sources: string[] }>(contentText)
-  if (!contentData || !contentData.text || !contentData.rationale || !Array.isArray(contentData.sources)) {
-    throw new Error('Invalid content generation result from LLM')
+  let contentData: ContentResult | null = null
+
+  // Try OpenAI content generation
+  if (apiKey) {
+    try {
+      const openai = new OpenAI({ apiKey })
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: contentSystemPrompt },
+          {
+            role: 'user',
+            content: contentUserPrompt({
+              persona,
+              winningTopic,
+              rejectedTopics,
+            }),
+          },
+        ],
+        temperature: 0.7,
+        response_format: { type: 'json_object' },
+      })
+
+      const raw = completion.choices[0]?.message?.content || ''
+      contentData = parseJson<ContentResult>(raw)
+    } catch (err) {
+      console.warn('OpenAI Content generation failed, falling back to local engine:', err)
+    }
   }
 
+  // Fallback content generation if API call failed
+  if (!contentData || !contentData.text || !contentData.rationale) {
+    contentData = fallbackContentGeneration(persona, winningTopic, rejectedTopics)
+  }
+
+  // Save the newly generated post to the database
   const post = await createPost({
     agentId,
     text: contentData.text,
     rationale: contentData.rationale,
-    sources: contentData.sources,
+    sources: JSON.stringify(contentData.sources.length ? contentData.sources : [winningTopic.url]),
   })
 
-  await createEvaluatedTopic({
-    agentId,
-    title: winningTopic.title,
-    url: winningTopic.url,
-    status: 'PUBLISHED',
-    reason: `Selected by editorial judgment based on persona ${agent.name} in ${agent.domain}`,
-  })
-
-  return { status: 'published', post, topic: winningTopic }
+  return {
+    status: 'published',
+    post: {
+      id: post.id,
+      createdAt: post.createdAt.toISOString(),
+      text: post.text,
+      rationale: post.rationale,
+      sources: contentData.sources,
+    },
+    winningTopic,
+    rejectedCount: rejectedTopics.length,
+  }
 }

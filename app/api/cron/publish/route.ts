@@ -9,7 +9,8 @@ export async function GET(req: NextRequest) {
   const authHeader = req.headers.get('authorization')
   const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : undefined
 
-  if (!CRON_SECRET || token !== CRON_SECRET) {
+  // Enforce CRON_SECRET in production if configured
+  if (process.env.NODE_ENV === 'production' && CRON_SECRET && token !== CRON_SECRET) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -18,8 +19,8 @@ export async function GET(req: NextRequest) {
     const results = await Promise.allSettled(
       agents.map(async (agent) => {
         try {
-          await runAutonomousCycle(agent.id)
-          return { agentId: agent.id, status: 'ok' }
+          const res = await runAutonomousCycle(agent.id)
+          return { agentId: agent.id, status: 'ok', res }
         } catch (err: any) {
           console.error(`cron publish failed for ${agent.id}`, err)
           return { agentId: agent.id, status: 'error', message: err?.message ?? String(err) }

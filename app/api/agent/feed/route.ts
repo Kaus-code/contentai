@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { listPostsByAgent } from '../../../../lib/db'
+import { listPostsByAgent, getAgentById } from '../../../../lib/db'
+import { checkAndAutoPublish } from '../../../../lib/scheduler'
+
+export const dynamic = 'force-dynamic'
 
 export async function GET(req: NextRequest) {
   try {
@@ -9,6 +12,14 @@ export async function GET(req: NextRequest) {
     if (!agentId) {
       return NextResponse.json({ error: 'agentId parameter is required' }, { status: 400 })
     }
+
+    const agent = await getAgentById(agentId)
+    if (!agent) {
+      return NextResponse.json({ posts: [] }, { status: 200 })
+    }
+
+    // Check if auto-publish cycle should trigger based on elapsed time
+    await checkAndAutoPublish(agentId, 15)
 
     const posts = await listPostsByAgent(agentId)
 
@@ -27,6 +38,8 @@ export async function GET(req: NextRequest) {
           } catch (_) {
             sources = [rawSources]
           }
+        } else if (Array.isArray(rawSources)) {
+          sources = (rawSources as any[]).map(String)
         } else {
           sources = [String(rawSources)]
         }
@@ -42,7 +55,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ posts: normalized }, { status: 200 })
   } catch (err: any) {
-    console.error('GET /api/agent/feed error', err)
+    console.error('GET /api/agent/feed error:', err)
     return NextResponse.json({ posts: [] }, { status: 200 })
   }
 }

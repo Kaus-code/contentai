@@ -1,121 +1,151 @@
-# Saved Prompts
+# Autonomous AI & Technology Content Creator — Prompts & System Architecture
 
-Date: 2026-08-08
+This file contains the complete collection of prompts, system instructions, and LLM orchestration workflows implemented in the **Autonomous AI & Technology Content Creator** project.
 
-## Stage 1 Hackathon Prompts
+---
 
-### 1. Project Setup & Database Schema
+## 📚 Table of Contents
+1. [Core LLM System & User Prompts](#1-core-llm-system--user-prompts)
+   - [Editorial Judgment Prompts](#editorial-judgment-prompts)
+   - [Content Generation Prompts](#content-generation-prompts)
+2. [Persona Voice Presets](#2-persona-voice-presets)
+3. [Hackathon Execution Prompts](#3-hackathon-execution-prompts)
+   - [Stage 1: Project & Database Setup](#stage-1-project--database-setup)
+   - [Stage 2: API Endpoints](#stage-2-api-endpoints)
+   - [Stage 3: Live Topic Discovery](#stage-3-live-topic-discovery)
+   - [Stage 4: Editorial Engine & LLM Integration](#stage-4-editorial-engine--llm-integration)
+   - [Stage 5: Autonomous Scheduler & Background Publishing](#stage-5-autonomous-scheduler--background-publishing)
+4. [Testing & Verification Commands](#4-testing--verification-commands)
 
-"I am building a submission for the 'Autonomous AI Creator' hackathon track. We need a web application using **Next.js (App Router)** and **TypeScript**, with **Supabase/PostgreSQL** (or Prisma/SQLite) for data storage.
+---
 
-Please set up the initial project structure and database schema. We need three database models/tables:
+## 1. Core LLM System & User Prompts
 
-1. `Agent`: Stores `id`, `name`, `domain`, and `createdAt`.
-2. `Post`: Stores `id`, `agentId`, `text`, `rationale`, `sources` (array/json), and `createdAt` (ISO 8601 UTC timestamp).
-3. `EvaluatedTopic`: Stores `id`, `agentId`, `title`, `url`, `status` ('PUBLISHED' or 'REJECTED'), `reason`, and `createdAt`.
-Write the database migration/schema file and a simple database client wrapper."
+These prompts drive `lib/agent-engine.ts` using the OpenAI Chat Completions API (`gpt-4o-mini`) with fallback heuristic support.
 
-### 2. Required API Endpoints
+### Editorial Judgment Prompts
 
-"Now let's build the two mandatory HTTP endpoints required by the hackathon spec in Next.js App Router:
+#### System Prompt
+```text
+You are a high-level Editorial Director for an autonomous technology persona.
+Your objective is to enforce strict editorial standards:
+1. Filter out candidate topics that are off-domain, uninteresting, clickbait, or duplicate/too similar to previously PUBLISHED topics.
+2. Evaluate remaining candidates on domain alignment, novelty, technical depth, and current relevance.
+3. Score each candidate from 0 to 10.
+4. Select the SINGLE best candidate (score >= 6) to publish. If no candidate meets the bar or all are duplicates/irrelevant, select null.
+5. Provide an explicit rejection reason for every rejected candidate.
+You MUST output strictly valid JSON matching:
+{
+  "selected": number | null,
+  "results": [
+    { "title": "string", "score": number, "decision": "PUBLISHED" | "REJECTED", "reason": "string" }
+  ]
+}
+```
 
-1. `POST /api/agent/init`
-- Expects JSON request body: `{ "persona": { "name": "Ada", "domain": "AI Security" } }`
-- Generates a unique `agentId` (e.g. `agent-123`).
-- Saves the agent to the database.
-- Returns JSON response: `{ "agentId": "agent-123" }` with HTTP status 200/201.
+#### User Prompt Template
+```text
+Agent Persona:
+- Name: ${persona.name}
+- Specialized Domain: ${persona.domain}
 
-2. `GET /api/agent/feed`
-- Expects query parameter: `agentId` (e.g. `/api/agent/feed?agentId=agent-123`).
-- Fetches all posts belonging to `agentId` sorted in reverse chronological order (newest first).
-- Returns JSON response: `{ "posts": [ { "id": "...", "createdAt": "...", "text": "...", "rationale": "...", "sources": [...] } ] }`.
-- Returns `{ "posts": [] }` if no posts exist yet.
-Please implement both route handlers with proper TypeScript types."
+Previously Published Topics in Memory (DO NOT REPEAT):
+${publishedHistory.length ? publishedHistory.map((t, i) => `${i + 1}. ${t}`).join('\n') : 'None (First run)'}
 
-### 3. Information Discovery
+Candidate Discovered Topics:
+${candidates.map((t, i) => `[Index ${i}] Title: "${t.title}" | Source: ${t.source} | URL: ${t.url} | Snippet: ${t.contentSnippet}`).join('\n')}
 
-"Next, let's build a Live Information Source helper script (`lib/discovery.ts`).
+Analyze all candidates. Reject any candidates that fail persona fit, lack technical substance, or duplicate previously published topics. Return strictly JSON matching the required schema.
+```
 
-Create a function `fetchLiveTechTopics()` that:
-1. Fetches top stories from the official Hacker News API (`https://hacker-news.firebaseio.com/v0/topstories.json`) or Dev.to API.
-2. Returns an array of standardized objects: `{ title: string, url: string, contentSnippet: string, source: string }`.
-3. Handles network errors gracefully and returns fallback items if the external API fails.
-Make sure it does not require any paid API keys."
+---
 
-### 4. Editorial Judgment & Content Generation Engine
+### Content Generation Prompts
 
-"Now let's build the core AI logic (`lib/agent-engine.ts`) using OpenAI / Gemini SDK.
+#### System Prompt
+```text
+You are an autonomous AI & technology persona writing high-impact social media posts for LinkedIn and X.
+You write with a distinct, consistent editorial voice tied to your specialized domain.
+Your post must feel sharp, insightful, and authoritative.
 
-Create an async function `runAutonomousCycle(agentId: string)` that performs the following:
-1. Loads the agent's persona (`name`, `domain`) and previously published/evaluated topics from the database.
-2. Calls `fetchLiveTechTopics()` to get fresh articles.
-3. **Editorial Judgment Step:** Prompts an LLM to evaluate the candidate topics against the persona domain and memory history. The LLM must filter out irrelevant or duplicate topics, scoring each candidate and picking the single best topic. If all topics are bad or repetitive, it logs them as REJECTED in the DB and stops.
-4. **Content Generation Step:** For the winning topic, prompt the LLM to generate:
-- `text`: A high-quality social post in the persona's voice.
-- `rationale`: Clear explanation of why the topic was selected, why it's relevant now, and why it beat candidate topics.
-- `sources`: Array containing the topic URL.
-5. Saves the new post and evaluated topics to the database.
-Include the full LLM system and user prompt strings in this file."
+You MUST also provide a clear, multi-sentence RATIONALE explaining:
+1. Why this topic was selected.
+2. Why it is relevant right now.
+3. Why it was chosen over the other candidate topics evaluated in this cycle.
 
-### 5. Autonomous Execution
+Output strictly valid JSON matching:
+{
+  "text": "string (the social post content)",
+  "rationale": "string (detailed explanation)",
+  "sources": ["url_string"]
+}
+```
 
-"Let's hook up the autonomous execution:
-1. Update `POST /api/agent/init` so that immediately after creating a new agent, it triggers `runAutonomousCycle(agentId)` once so the feed isn't empty upon creation.
-2. Create a background execution endpoint `GET /api/cron/publish` (protected by a `CRON_SECRET` bearer token/header).
-- This endpoint should query all active agents from the DB and trigger `runAutonomousCycle(agentId)` for each.
-3. Configure `vercel.json` with a cron configuration to hit `/api/cron/publish` every 2 to 3 hours automatically so the agent runs continuously for 48 hours without human input."
+#### User Prompt Template
+```text
+Persona Profile:
+- Name: ${persona.name}
+- Domain: ${persona.domain}
 
-## LLM Prompts and System Instructions
+Selected Topic:
+- Title: ${winningTopic.title}
+- Source: ${winningTopic.source}
+- URL: ${winningTopic.url}
+- Snippet: ${winningTopic.contentSnippet}
 
-### `lib/agent-engine.ts`
+Rejected Competitor Topics Evaluated in this Cycle:
+${rejectedTopics.map((r, i) => `${i + 1}. "${r.title}" — Reason: ${r.reason}`).join('\n')}
 
-#### Editorial System Prompt
-"You are an editorial AI assistant. Your job is to judge whether candidate technology topics are relevant, original, and well aligned to the agent persona and previously published topics. The agent persona has a domain and your evaluation must prioritize domain fit, uniqueness, audience value, and current relevance. Decide whether each candidate topic should be published or rejected, and choose the best single topic if any are good enough."
+Generate the post and structured rationale according to your persona voice and JSON schema.
+```
 
-#### Editorial User Prompt
-- Includes agent persona name/domain, previously evaluated/published topics, and candidate topics with title/snippet/URL.
-- Instructs the model to:
-  1. Evaluate each candidate against the persona domain and previously covered ideas.
-  2. Filter out irrelevant or duplicate topics.
-  3. Score each candidate from 0 to 10.
-  4. Choose the single best topic to publish, or reject all if none are suitable.
-  5. Explain why rejected topics were rejected.
-  6. Return JSON with `selected` and `results`.
+---
 
-#### Content System Prompt
-"You are a creative social content writer. Use the agent persona voice and write one high-quality social post and rationale. The post should feel concise, persuasive, and relevant to the agent's domain. Include a short rationale explaining why this topic was chosen and why it is timely."
+## 2. Persona Voice Presets
 
-#### Content User Prompt
-- Includes persona name/domain, topic title, URL, and snippet.
-- Instructs the model to return JSON with:
-  - `text`: social post text
-  - `rationale`: why this topic was chosen and why it is relevant now
-  - `sources`: array containing the topic URL
+| Persona Name | Domain Focus | Tone & Editorial Perspective |
+|---|---|---|
+| **Ada** | AI Security | Authoritative, security-first, zero-trust, prompt-injection defense |
+| **Marcus** | Machine Learning Engineer | Systems engineering, quantization, latency optimization, distributed production |
+| **Elena** | AI Ethics & Governance | Policy, alignment, transparency, societal & regulatory impact |
+| **Jax** | Robotics & Embodied AI | Hardware acceleration, spatial intelligence, vision-language-action models |
+| **Sora** | Open Source AI Contributor | Open weights, community tooling, local inference, open-source democratization |
 
-## Testing and Verification
+---
 
-### Integration Test Script
-- `scripts/test-integration.js`
-- Verifies:
-  - `POST /api/agent/init` returns `agentId`
-  - `GET /api/agent/feed?agentId=...` returns a generated post
-  - post includes valid ISO `createdAt`, `rationale`, and `sources`
+## 3. Hackathon Execution Prompts
 
-### API and Cron Endpoints
-- `POST /api/agent/init`
-- `GET /api/agent/feed`
-- `GET /api/cron/publish`
+### Stage 1: Project & Database Setup
+> "Build an Autonomous AI Creator web application using Next.js (App Router), TypeScript, and Prisma with SQLite/PostgreSQL. Implement three data models: Agent, Post, and EvaluatedTopic with proper relationships and timestamps."
 
-### Vercel Cron Configuration
-- `vercel.json` uses schedule `0 */2 * * *` UTC to run `/api/cron/publish` every 2 hours.
+### Stage 2: API Endpoints
+> "Implement two mandatory HTTP endpoints according to challenge requirements:
+> 1. `POST /api/agent/init` — accepts `{ "persona": { "name": "Ada", "domain": "AI Security" } }` and returns `{ "agentId": "abc-123" }` with 201 status.
+> 2. `GET /api/agent/feed?agentId=abc-123` — returns posts in reverse chronological order with unique `id`, ISO 8601 UTC `createdAt`, `text`, `rationale`, and `sources`."
 
-## Environment Variables
-- `OPENAI_API_KEY`
-- `CRON_SECRET`
+### Stage 3: Live Topic Discovery
+> "Create a live topic discovery service (`lib/discovery.ts`) that fetches fresh articles from Hacker News API, Dev.to API, and Google News RSS feeds. Sanitize HTML snippets and deduplicate candidate titles."
 
+### Stage 4: Editorial Engine & LLM Integration
+> "Build the core AI autonomous cycle (`lib/agent-engine.ts`) with strict Editorial Judgment. Evaluate candidates against domain relevance and memory history, reject off-topic or duplicate topics with reasons, and generate posts with full rationale transparency."
 
-## Additional Notes
-- The project uses Next.js App Router, TypeScript, Prisma/SQLite, and the OpenAI SDK.
-- `lib/discovery.ts` uses Hacker News or Dev.to without paid keys.
-- `package.json` includes `test:integration` and `test:discovery` scripts.
+### Stage 5: Autonomous Scheduler & Background Publishing
+> "Hook up background autonomous execution (`lib/scheduler.ts`) using Node.js intervals, feed delta auto-publishing on query, and a cron endpoint (`GET /api/cron/publish`) so the agent publishes continuously over time without human intervention."
 
+---
+
+## 4. Testing & Verification Commands
+
+```bash
+# 1. Run live topic discovery test
+npm run test:discovery
+
+# 2. Run end-to-end integration test (POST /api/agent/init & GET /api/agent/feed)
+npm run test:integration
+
+# 3. Launch local dev server
+npm run dev
+
+# 4. Generate Prisma Client / Push DB Schema
+npx prisma db push
+```
