@@ -5,9 +5,10 @@ import { FormEvent, useEffect, useState } from 'react'
 type Post = {
   id: string
   createdAt: string
-  text: string
-  rationale: string
-  sources: string[]
+  body?: string
+  text?: string
+  rationale?: string
+  sources?: string[]
 }
 
 type Evaluation = {
@@ -35,7 +36,7 @@ export default function Home() {
   const [feedPosts, setFeedPosts] = useState<Post[]>([])
   const [evaluations, setEvaluations] = useState<Evaluation[]>([])
   const [activeTab, setActiveTab] = useState<'feed' | 'evaluations' | 'api'>('feed')
-  
+
   const [loadingInit, setLoadingInit] = useState(false)
   const [loadingFeed, setLoadingFeed] = useState(false)
   const [loadingCycle, setLoadingCycle] = useState(false)
@@ -170,7 +171,7 @@ export default function Home() {
 
       {/* Grid Layout */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 32 }}>
-        
+
         {/* Agent Setup Card */}
         <section className="glass-card">
           <h2 style={{ fontSize: 22, fontWeight: 600, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>

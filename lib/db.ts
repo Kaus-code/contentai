@@ -265,7 +265,16 @@ export async function recordConversion(postVariantId: string) {
 export async function getVariantMetricsForPost(postId: string) {
   if (!hasModel('variantMetric')) return []
   // @ts-ignore
-  return prisma.variantMetric.findMany({ where: { postVariant: { postId } }, include: { postVariant: true } })
+  return prisma.variantMetric.findMany({
+    where: { postVariant: { postId } },
+    include: {
+      postVariant: {
+        include: {
+          post: true,
+        },
+      },
+    },
+  })
 }
 
 export async function tryAcquireAgentLock(agentId: string, lockMs = 5 * 60 * 1000) {

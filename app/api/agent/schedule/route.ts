@@ -11,7 +11,10 @@ export async function GET(req: NextRequest) {
     const agent = await getAgentById(agentId)
     if (!agent) return NextResponse.json({ error: 'Agent not found' }, { status: 404 })
 
-    return NextResponse.json({ scheduleIntervalMinutes: agent.scheduleIntervalMinutes ?? null, schedulePaused: agent.schedulePaused ?? false }, { status: 200 })
+    const scheduleIntervalMinutes = (agent as any).scheduleIntervalMinutes ?? null
+    const schedulePaused = (agent as any).schedulePaused ?? false
+
+    return NextResponse.json({ scheduleIntervalMinutes, schedulePaused }, { status: 200 })
   } catch (err: any) {
     console.error('GET /api/agent/schedule error:', err)
     return NextResponse.json({ error: err?.message ?? String(err) }, { status: 500 })
