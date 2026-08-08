@@ -182,3 +182,29 @@ npx prisma generate
 
 Then start the app as usual.
 
+Using SQLite for local development (no DATABASE_URL)
+--------------------------------------------------
+If you don't have a Postgres `DATABASE_URL`, you can run the project locally using the bundled SQLite dev schema. This requires no external DB:
+
+1. Generate the Prisma client for the dev schema:
+
+```bash
+npm run prisma:generate:dev
+```
+
+2. Run migrations for the SQLite dev schema (creates `prisma/dev.db`):
+
+```bash
+npm run migrate:dev:sqlite
+```
+
+3. Seed data (SQLite): either use a small script that uses the generated Prisma client, or open `prisma/manual_seed.sql` and translate it for sqlite CLI. The simplest path is to run a quick Node seed that connects via the generated client.
+
+4. Start the dev server:
+
+```bash
+npm run dev
+```
+
+This path is recommended for local experimentation when you don't have Postgres available.
+
