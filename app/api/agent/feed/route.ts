@@ -15,20 +15,20 @@ export async function GET(req: NextRequest) {
     const normalized = posts
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
       .map((p) => {
+        const rawSources = p.sources
         let sources: string[] = []
-        if (p.sources == null) {
+
+        if (rawSources == null) {
           sources = []
-        } else if (typeof p.sources === 'string') {
+        } else if (typeof rawSources === 'string') {
           try {
-            const parsed = JSON.parse(p.sources)
+            const parsed = JSON.parse(rawSources)
             sources = Array.isArray(parsed) ? parsed.map(String) : [String(parsed)]
           } catch (_) {
-            sources = [p.sources]
+            sources = [rawSources]
           }
-        } else if (Array.isArray(p.sources)) {
-          sources = p.sources.map(String)
         } else {
-          sources = [String(p.sources)]
+          sources = [String(rawSources)]
         }
 
         return {
