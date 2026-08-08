@@ -5,7 +5,7 @@ function validateEditorial(obj) {
   if (!Array.isArray(obj.results)) return { valid: false, reason: 'results not array' }
   for (const r of obj.results) {
     if (typeof r.title !== 'string') return { valid: false, reason: 'title not string' }
-    if (typeof r.score !== 'number' || r.score < 0 || r.score > 10) return { valid: false, reason: 'score out of range' }
+    if (typeof r.score !== 'number' || r.score < 0 || r.score > 100) return { valid: false, reason: 'score out of range' }
     if (!(r.decision === 'PUBLISHED' || r.decision === 'REJECTED')) return { valid: false, reason: 'invalid decision' }
     if (typeof r.reason !== 'string') return { valid: false, reason: 'reason not string' }
   }
@@ -19,15 +19,15 @@ function run() {
   const good = {
     selected: 0,
     results: [
-      { title: 'AI for Databases', score: 8, decision: 'PUBLISHED', reason: 'Good fit' },
-      { title: 'Cute kittens', score: 1, decision: 'REJECTED', reason: 'Off domain' },
+      { title: 'AI for Databases', score: 80, decision: 'PUBLISHED', reason: 'Good fit' },
+      { title: 'Cute kittens', score: 10, decision: 'REJECTED', reason: 'Off domain' },
     ],
   }
 
   const bad = {
     selected: 5,
     results: [
-      { title: 'Only one', score: 5, decision: 'REJECTED', reason: 'meh' },
+      { title: 'Only one', score: 50, decision: 'REJECTED', reason: 'meh' },
     ],
   }
 
