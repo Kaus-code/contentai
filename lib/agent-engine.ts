@@ -1,12 +1,13 @@
 import { OpenAI } from 'openai'
-import { fetchLiveTechTopics, Topic } from './discovery'
+import { fetchLiveTechTopics } from './discovery.ts'
+import type { Topic } from './discovery.ts'
 import {
   createEvaluatedTopic,
   createPost,
   getAgentById,
   listEvaluatedTopicsByAgent,
   listPostsByAgent,
-} from './db'
+} from './db.ts'
 
 type AgentPersona = {
   id: string

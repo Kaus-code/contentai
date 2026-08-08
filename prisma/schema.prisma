@@ -8,31 +8,63 @@ datasource db {
 }
 
 model Agent {
-  id              String            @id @default(uuid())
-  name            String
-  domain          String
-  createdAt       DateTime          @default(now())
-  posts           Post[]
-  evaluatedTopics EvaluatedTopic[]
+  id                      String           @id @default(uuid())
+  name                    String
+  domain                  String
+  createdAt               DateTime         @default(now())
+  scheduleIntervalMinutes Int?             @default(15)
+  schedulePaused          Boolean          @default(false)
+  posts                   Post[]
+  evaluatedTopics         EvaluatedTopic[]
+  workflows               Workflow[]
 }
 
 model Post {
-  id        String   @id @default(uuid())
-  agentId   String
-  agent     Agent    @relation(fields: [agentId], references: [id])
-  text      String
-  rationale String?
-  sources   String?
-  createdAt DateTime @default(now())
+  id          String       @id @default(uuid())
+  agentId     String
+  agent       Agent        @relation(fields: [agentId], references: [id])
+  text        String
+  rationale   String?
+  sources     String?
+  createdAt   DateTime     @default(now())
+  postMetrics PostMetric[]
 }
 
 model EvaluatedTopic {
-  id        String  @id @default(uuid())
+  id        String   @id @default(uuid())
   agentId   String
-  agent     Agent   @relation(fields: [agentId], references: [id])
+  agent     Agent    @relation(fields: [agentId], references: [id])
   title     String
   url       String?
   status    String
   reason    String?
   createdAt DateTime @default(now())
+}
+
+model Workflow {
+  id        String         @id @default(uuid())
+  agentId   String
+  agent     Agent          @relation(fields: [agentId], references: [id])
+  name      String
+  steps     WorkflowStep[]
+  createdAt DateTime       @default(now())
+}
+
+model WorkflowStep {
+  id         String   @id @default(uuid())
+  workflowId String
+  workflow   Workflow @relation(fields: [workflowId], references: [id])
+  stepOrder  Int
+  stepType   String
+  config     String?
+  createdAt  DateTime @default(now())
+}
+
+model PostMetric {
+  id          String   @id @default(uuid())
+  postId      String
+  post        Post     @relation(fields: [postId], references: [id])
+  impressions Int      @default(0)
+  clicks      Int      @default(0)
+  createdAt   DateTime @default(now())
 }

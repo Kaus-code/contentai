@@ -9,7 +9,8 @@
     "test:discovery": "node scripts/run-discovery.cjs",
     "test:integration": "node scripts/test-integration.js",
     "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev --name init"
+    "prisma:migrate": "prisma migrate dev --name init",
+    "test:all": "ts-node scripts/tests/run-all.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.0.0",
