@@ -48,8 +48,7 @@ model Agent {
 
   runs               AgentRun[]
   posts              Post[]
-  evaluatedTopics    CandidateTopic[] @relation("evaluations")
-  workflowSteps      WorkflowRunStep[]
+  workflows          Workflow[]
 }
 
 model AgentRun {
@@ -70,6 +69,7 @@ model AgentRun {
   durationMs       Int?
 
   steps            WorkflowRunStep[]
+  candidateTopics  CandidateTopic[]
 }
 
 model CandidateTopic {
@@ -125,6 +125,7 @@ model Post {
   versions         PostVersion[]
   metrics          PostMetric[]
   embeddings       Embedding[]
+  postVariants     PostVariant[]
 }
 
 model WorkflowRunStep {
@@ -203,6 +204,7 @@ model PostVariant {
   variant   String   // short label
   text      String
   createdAt DateTime @default(now())
+  metrics   VariantMetric[]
 }
 
 model DecisionLog {
