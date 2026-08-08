@@ -10,10 +10,12 @@
     "test:integration": "node scripts/test-integration.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev --name init",
+    "run:experiments": "ts-node scripts/run-experiments.ts",
     "test:all": "ts-node scripts/tests/run-all.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.0.0",
+    "pg": "^8.0.0",
     "next": "^14.0.0",
     "openai": "^4.9.0",
     "react": "^18.0.0",

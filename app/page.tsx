@@ -150,12 +150,22 @@ export default function Home() {
           <div className="pulse-dot" />
           Autonomous AI & Tech Persona Creator
         </div>
-        <h1 style={{ fontSize: 42, fontWeight: 700, letterSpacing: '-1px', marginBottom: 12 }}>
-          Self-Directing Editorial Persona
+        <h1 style={{ fontSize: 40, fontWeight: 700, letterSpacing: '-1px', marginBottom: 12 }}>
+          Self-Directing Editorial Persona for AI & Technology
         </h1>
-        <p style={{ color: 'var(--text-muted)', fontSize: 18, maxWidth: 680, margin: '0 auto' }}>
-          Independently discovers topics from live sources, enforces strict editorial judgment, remembers prior posts, and publishes continuously over time.
+        <p style={{ color: 'var(--text-muted)', fontSize: 17, maxWidth: 720, margin: '0 auto' }}>
+          An autonomous editorial agent that discovers timely technical topics, applies strict editorial judgment, writes in a consistent voice, and publishes over time with explainable reasoning.
         </p>
+
+        {/* Animated demo steps */}
+        <div style={{ marginTop: 20 }}>
+          <div className="demo-steps">
+            <div className="demo-step">Discover</div>
+            <div className="demo-step">Evaluate</div>
+            <div className="demo-step">Compose</div>
+            <div className="demo-step">Publish</div>
+          </div>
+        </div>
       </header>
 
       {/* Grid Layout */}

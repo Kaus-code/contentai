@@ -17,6 +17,7 @@ model Agent {
   posts                   Post[]
   evaluatedTopics         EvaluatedTopic[]
   workflows               Workflow[]
+  personaConfig           String?
 }
 
 model Post {
@@ -78,6 +79,33 @@ model Embedding {
   createdAt DateTime @default(now())
 }
 
+model PostVersion {
+  id        String   @id @default(uuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id])
+  text      String
+  rationale String?
+  sources   String?
+  createdAt DateTime @default(now())
+}
+
+model Webhook {
+  id        String   @id @default(uuid())
+  agentId   String
+  url       String
+  events    String   // comma-separated events e.g. POST_PUBLISHED
+  createdAt DateTime @default(now())
+}
+
+model PostVariant {
+  id        String   @id @default(uuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id])
+  variant   String   // short label
+  text      String
+  createdAt DateTime @default(now())
+}
+
 model DecisionLog {
   id        String   @id @default(uuid())
   agentId   String
@@ -93,4 +121,14 @@ model SourceCredibility {
   score     Float    @default(0)
   notes     String?
   checkedAt DateTime @default(now())
+}
+
+model VariantMetric {
+  id            String     @id @default(uuid())
+  postVariantId String
+  postVariant   PostVariant @relation(fields: [postVariantId], references: [id])
+  impressions   Int        @default(0)
+  conversions   Int        @default(0)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
 }

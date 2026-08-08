@@ -421,6 +421,13 @@ export async function runAutonomousCycle(agentId: string) {
     sources: JSON.stringify(contentData.sources.length ? contentData.sources : [winningTopic.url]),
   })
 
+  // Persist version for the post
+  try {
+    await db.createPostVersion({ postId: post.id, text: post.text, rationale: post.rationale, sources: post.sources })
+  } catch (e) {
+    console.warn('Failed to create post version', e)
+  }
+
   // Persist embedding for the newly created post
   try {
     const postVec = await emb.generateEmbedding(post.text || post.rationale || '')
@@ -432,6 +439,30 @@ export async function runAutonomousCycle(agentId: string) {
     }
   } catch (e) {
     console.warn('Failed to persist post embedding', e)
+  }
+
+  // Trigger webhooks for POST_PUBLISHED
+  try {
+    const hooks = await db.listWebhooksByAgent(agentId)
+    if (hooks && hooks.length > 0) {
+      const payload = {
+        event: 'POST_PUBLISHED',
+        agentId,
+        post: {
+          id: post.id,
+          createdAt: post.createdAt,
+          text: post.text,
+          rationale: post.rationale,
+          sources: JSON.parse(post.sources || '[]'),
+        },
+      }
+      for (const h of hooks) {
+        // fire and forget
+        fetch(h.url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).catch((err) => console.warn('Webhook POST failed', h.url, err))
+      }
+    }
+  } catch (e) {
+    console.warn('Failed to trigger webhooks', e)
   }
 
   return {

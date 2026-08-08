@@ -5,6 +5,13 @@ import { scoreDomain } from '../../../../lib/sourceCred'
 export async function GET(request: Request) {
   const url = new URL(request.url)
   const domain = url.searchParams.get('domain')
+  const list = url.searchParams.get('list')
+
+  if (list) {
+    const all = await db.listSourceCredibilities()
+    return NextResponse.json({ items: all })
+  }
+
   if (!domain) return NextResponse.json({ error: 'domain required' }, { status: 400 })
 
   const existing = await db.getSourceCredibility(domain)
