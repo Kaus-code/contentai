@@ -7,10 +7,9 @@ const CRON_SECRET = process.env.CRON_SECRET
 
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get('authorization')
-  const secretHeader = req.headers.get('x-cron-secret')
-  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : authHeader
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : undefined
 
-  if (!CRON_SECRET || (token !== CRON_SECRET && secretHeader !== CRON_SECRET)) {
+  if (!CRON_SECRET || token !== CRON_SECRET) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
