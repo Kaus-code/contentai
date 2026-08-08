@@ -78,3 +78,39 @@ export async function createPostMetric(data: { postId: string; impressions?: num
 export async function listPostMetricsByAgent(agentId: string) {
   return prisma.postMetric.findMany({ where: { post: { agentId } }, include: { post: true } })
 }
+
+export async function createEmbedding(data: { postId?: string | null; agentId?: string | null; vector: string }) {
+  return prisma.embedding.create({ data })
+}
+
+export async function listEmbeddingsByAgent(agentId: string) {
+  return prisma.embedding.findMany({ where: { agentId }, orderBy: { createdAt: 'desc' } })
+}
+
+export async function findEmbeddings(limit = 50) {
+  return prisma.embedding.findMany({ take: limit, orderBy: { createdAt: 'desc' } })
+}
+
+export async function createDecisionLog(data: { agentId: string; type: string; outcome?: string | null; payload?: string | null }) {
+  return prisma.decisionLog.create({ data })
+}
+
+export async function listDecisionLogsByAgent(agentId: string) {
+  return prisma.decisionLog.findMany({ where: { agentId }, orderBy: { createdAt: 'desc' } })
+}
+
+export async function upsertSourceCredibility(domain: string, score: number, notes?: string | null) {
+  return prisma.sourceCredibility.upsert({
+    where: { domain },
+    update: { score, notes, checkedAt: new Date() },
+    create: { domain, score, notes },
+  })
+}
+
+export async function getSourceCredibility(domain: string) {
+  return prisma.sourceCredibility.findUnique({ where: { domain } })
+}
+
+export async function listSourceCredibilities() {
+  return prisma.sourceCredibility.findMany({ orderBy: { checkedAt: 'desc' } })
+}

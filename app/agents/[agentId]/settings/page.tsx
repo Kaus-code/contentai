@@ -38,6 +38,7 @@ export default function AgentSettings({ params }: { params: { agentId: string } 
         <div style={{ display: 'flex', gap: 8 }}>
           <a className="secondary-btn" href={`/agents/${agentId}/workflow`}>Workflow</a>
           <a className="secondary-btn" href={`/agents/${agentId}/analytics`}>Analytics</a>
+          <a className="secondary-btn" href={`/agents/${agentId}/logs`}>Logs</a>
         </div>
       </div>
 

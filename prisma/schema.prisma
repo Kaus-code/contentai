@@ -68,3 +68,29 @@ model PostMetric {
   clicks      Int      @default(0)
   createdAt   DateTime @default(now())
 }
+
+model Embedding {
+  id        String   @id @default(uuid())
+  postId    String? 
+  post      Post?    @relation(fields: [postId], references: [id])
+  agentId   String?  
+  vector    String   // JSON-encoded array of numbers
+  createdAt DateTime @default(now())
+}
+
+model DecisionLog {
+  id        String   @id @default(uuid())
+  agentId   String
+  type      String   // e.g., EDITORIAL | NOVELTY | CONTENT
+  outcome   String?
+  payload   String?  // JSON-encoded details
+  createdAt DateTime @default(now())
+}
+
+model SourceCredibility {
+  id        String   @id @default(uuid())
+  domain    String   @unique
+  score     Float    @default(0)
+  notes     String?
+  checkedAt DateTime @default(now())
+}

@@ -8,6 +8,8 @@ import {
   listEvaluatedTopicsByAgent,
   listPostsByAgent,
 } from './db.ts'
+import * as db from './db.ts'
+import * as emb from './embeddings'
 
 type AgentPersona = {
   id: string
@@ -236,6 +238,34 @@ export async function runAutonomousCycle(agentId: string) {
   // Step 1: Discover topics from live information sources
   const candidateTopics = await fetchLiveTechTopics(8, agent.domain)
 
+  // Compute embeddings for candidate topics and load past embeddings for novelty checks
+  const candidateVectors = await Promise.all(
+    candidateTopics.map(async (t) => ({
+      topic: t,
+      vector: await emb.generateEmbedding((t.title || '') + '\n' + (t.contentSnippet || '')),
+    }))
+  )
+
+  const pastEmbeddings = await db.listEmbeddingsByAgent(agentId)
+  // Fetch source credibility scores for candidate domains
+  const sourceScores = {}
+  for (const ct of candidateTopics) {
+    try {
+      const url = ct.url || ''
+      const domain = url ? (new URL(url)).hostname : null
+      if (domain) {
+        // lazy import to avoid circular/unused API requirements
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const sc = await (await import('./sourceCred')).scoreDomain(domain)
+        // store
+        // @ts-ignore
+        sourceScores[ct.title] = sc
+      }
+    } catch (e) {
+      // ignore parse errors
+    }
+  }
+
   let editorialData: EditorialResult | null = null
 
   // Try OpenAI API if key exists
@@ -272,19 +302,64 @@ export async function runAutonomousCycle(agentId: string) {
     editorialData = fallbackEditorialEvaluation(persona, publishedTitles, candidateTopics)
   }
 
+  // Record editorial decision log
+  try {
+    await db.createDecisionLog({ agentId, type: 'EDITORIAL', outcome: editorialData.selected !== null ? 'SELECTED' : 'NONE', payload: JSON.stringify(editorialData) })
+  } catch (e) {
+    console.warn('Failed to write editorial decision log', e)
+  }
+
   // Store all evaluated topics in database (memory & transparency)
   await Promise.all(
     editorialData.results.map((result) => {
       const matched = candidateTopics.find((t) => t.title === result.title)
-      return createEvaluatedTopic({
+      const evalPromise = createEvaluatedTopic({
         agentId,
         title: result.title,
         url: matched?.url ?? null,
         status: result.decision,
         reason: result.reason,
       })
+
+      // Attach source credibility info if we computed it
+      const sc = (matched && (sourceScores as any)[matched.title]) || null
+      if (sc) {
+        try {
+          // write a decision log for source credibility
+          db.createDecisionLog({ agentId, type: 'SOURCE_CRED', outcome: String(sc.score), payload: JSON.stringify(sc) })
+        } catch (e) {
+          // ignore
+        }
+      }
+
+      return evalPromise
     })
   )
+
+  // Apply embedding-based novelty check by marking high-similarity candidates as rejected
+  // If any candidate is very similar (>0.85) to a past embedding, annotate its evaluation result
+  if (pastEmbeddings && pastEmbeddings.length > 0) {
+    const similarityThreshold = 0.85
+    for (const cv of candidateVectors) {
+      const sims = pastEmbeddings.map((p) => emb.cosineSimilarity(cv.vector, emb.parseVector(p.vector)))
+      const maxSim = Math.max(...sims, 0)
+      if (maxSim >= similarityThreshold) {
+        // find matching result and mark as rejected due to duplication if not already rejected
+        const res = editorialData.results.find((r) => r.title === cv.topic.title)
+        if (res && res.decision === 'PUBLISHED') {
+          res.decision = 'REJECTED'
+          res.reason = `Rejected by embedding novelty filter: similarity ${maxSim.toFixed(3)} to previously published content.`
+          // update DB evaluated topic record accordingly
+          createEvaluatedTopic({ agentId, title: res.title, url: cv.topic.url ?? null, status: res.decision, reason: res.reason })
+          try {
+            await db.createDecisionLog({ agentId, type: 'NOVELTY', outcome: 'REJECTED_DUPLICATE', payload: JSON.stringify({ title: res.title, similarity: maxSim }) })
+          } catch (e) {
+            console.warn('Failed to write novelty decision log', e)
+          }
+        }
+      }
+    }
+  }
 
   const chosenIndex = editorialData.selected
 
@@ -345,6 +420,19 @@ export async function runAutonomousCycle(agentId: string) {
     rationale: contentData.rationale,
     sources: JSON.stringify(contentData.sources.length ? contentData.sources : [winningTopic.url]),
   })
+
+  // Persist embedding for the newly created post
+  try {
+    const postVec = await emb.generateEmbedding(post.text || post.rationale || '')
+    await db.createEmbedding({ postId: post.id, agentId, vector: emb.serializeVector(postVec) })
+    try {
+      await db.createDecisionLog({ agentId, type: 'CONTENT', outcome: 'PUBLISHED', payload: JSON.stringify({ postId: post.id, title: winningTopic.title }) })
+    } catch (e) {
+      console.warn('Failed to write content decision log', e)
+    }
+  } catch (e) {
+    console.warn('Failed to persist post embedding', e)
+  }
 
   return {
     status: 'published',
