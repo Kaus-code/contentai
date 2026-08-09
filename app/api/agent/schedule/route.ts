@@ -8,6 +8,10 @@ export async function GET(req: NextRequest) {
     const agentId = url.searchParams.get('agentId')
     if (!agentId) return NextResponse.json({ error: 'agentId parameter is required' }, { status: 400 })
 
+    if (!process.env.DATABASE_URL) {
+      return NextResponse.json({ scheduleIntervalMinutes: null, schedulePaused: false }, { status: 200 })
+    }
+
     const agent = await getAgentById(agentId)
     if (!agent) return NextResponse.json({ error: 'Agent not found' }, { status: 404 })
 
@@ -26,6 +30,10 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}))
     const { agentId, intervalMinutes, paused } = body
     if (!agentId) return NextResponse.json({ error: 'agentId is required' }, { status: 400 })
+
+    if (!process.env.DATABASE_URL) {
+      return NextResponse.json({ updated: null }, { status: 200 })
+    }
 
     const updated = await updateAgentSchedule(agentId, typeof intervalMinutes === 'number' ? intervalMinutes : undefined, typeof paused === 'boolean' ? paused : undefined)
     return NextResponse.json({ updated }, { status: 200 })

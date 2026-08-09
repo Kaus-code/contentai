@@ -12,6 +12,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'agentId parameter is required' }, { status: 400 })
     }
 
+    if (!process.env.DATABASE_URL) {
+      return NextResponse.json({ posts: [] }, { status: 200 })
+    }
+
     const agent = await getAgentById(agentId)
     if (!agent) {
       return NextResponse.json({ posts: [] }, { status: 200 })
