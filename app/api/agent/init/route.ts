@@ -18,6 +18,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing persona.name or persona.domain' }, { status: 400 })
     }
 
+    if (!process.env.DATABASE_URL) {
+      return NextResponse.json({
+        error: 'Database is not configured yet. Add a PostgreSQL DATABASE_URL in Vercel (for example from Vercel Postgres, Neon, or Supabase) and redeploy.',
+      }, { status: 503 })
+    }
+
     const agentId = `agent-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 
     // Save agent to DB
